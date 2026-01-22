@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="id" x-data="themeConfig">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error {{ @ERROR.code }} - TinySpaces</title>
+    <link href="/public/css/style.css" rel="stylesheet">
+    <link href="/node_modules/boxicons/css/boxicons.min.css" rel="stylesheet">
+    <script src="/node_modules/alpinejs/dist/cdn.min.js" defer></script>
+    <script src="/public/js/app.js"></script>
+    <script src="/public/js/space.js"></script>
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 flex items-center justify-center min-h-screen px-4">
+    <div class="max-w-md w-full text-center">
+        <h1 class="text-8xl font-bold text-gray-800 dark:text-gray-200 mb-8">
+            {{ @ERROR.code }}
+        </h1>
+        <h2 class="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
+            <check if="{{ @ERROR.code == 404 }}">
+                <true>Page Not Found</true>
+                <false>{{ @ERROR.status }}</false>
+            </check>
+        </h2>
+
+        <p class="text-gray-600 dark:text-gray-400 mb-8 max-w-sm mx-auto">
+            <check if="{{ @ERROR.code == 404 }}">
+                <true>Oops! The page you are looking for does not exist or has been moved.</true>
+                <false>
+                    <check if="{{ @ERROR.text }}">
+                        <true>{{ @ERROR.text }}</true>
+                        <false>Something went wrong. Please try again later.</false>
+                    </check>
+                </false>
+            </check>
+        </p>
+
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <button onclick="history.back()"
+                class="px-6 py-3 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 flex items-center justify-center gap-2">
+                <i class='bx bx-arrow-back'></i> Go Back
+            </button>
+
+            <a href="/"
+                class="px-6 py-3 rounded-lg bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center gap-2 font-medium">
+                <i class='bx bx-home-alt'></i> Go Home
+            </a>
+        </div>
+
+        <!-- Debug Info removed -->
+    </div>
+</body>
+
+</html>

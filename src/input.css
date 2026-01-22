@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+z-dropdown {
+    z-index: 1000;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));

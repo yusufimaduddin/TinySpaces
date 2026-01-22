@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="id" x-data="themeConfig">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ @title }} - TinySpaces</title>
+    <link rel="icon" type="image/png" href="/public/images/favicon.png">
+    <meta name="title" content="{{ @title }}">
+    <meta name="description" content="{{ @description }}">
+    <meta name="author" content="{{ @author }}">
+    <link href="/public/css/style.css" rel="stylesheet">
+    <link href="/public/css/prose.css" rel="stylesheet">
+    <link href="/node_modules/boxicons/css/boxicons.min.css" rel="stylesheet">
+    <script src="/node_modules/alpinejs/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/relativeTime.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/utc.js"></script>
+    <script>
+        dayjs.extend(window.dayjs_plugin_relativeTime);
+        dayjs.extend(window.dayjs_plugin_utc);
+    </script>
+    <script>
+        window.SPACE_ID = '{{ @space_id }}';
+    </script>
+    <script src="/public/js/app.js"></script>
+    <script src="/public/js/space.js"></script>
+</head>
+
+<body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100" x-data="spaceManager">
+    <div class="min-h-screen">
+        <!-- HEADER -->
+        <header class="border-b border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 relative z-10">
+            <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+                <a href="/user/dashboard">
+                    <h1 class="text-lg font-semibold text-gray-900 dark:text-white cursor-pointer">
+                        TinySpaces
+                    </h1>
+                </a>
+
+                <div class="flex items-center gap-4">
+                    <!-- UPLOAD BUTTON dengan Alpine.js -->
+                    <div>
+                        <button @click="uploadModalOpen = true"
+                            class="inline-flex items-center gap-2 rounded-lg bg-gray-900 dark:bg-gray-700 px-3 py-2 text-sm text-white dark:text-gray-100 hover:bg-gray-800 dark:hover:bg-gray-600 transition-colors cursor-pointer">
+                            <i class="bx bx-upload text-lg"></i>
+                            <span class="hidden sm:inline">Upload File</span>
+                            <span class="sm:hidden">Upload</span>
+                        </button>
+
+                        <!-- Upload Modal -->
+                        <div x-show="uploadModalOpen" style="display: none;"
+                            x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
+                            x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150"
+                            x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                            class="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4"
+                            @click.self="handleBackdropDoubleTap(() => uploadModalOpen = false)">
+
+                            <div
+                                class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl w-full max-w-lg border border-gray-200 dark:border-gray-700">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="font-semibold dark:text-white text-lg">Upload Files</h3>
+                                    <button @click="uploadModalOpen = false"
+                                        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer">
+                                        <i class="bx bx-x text-2xl"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Upload Zone -->
+                                <div @click="triggerFileInput()" @dragover.prevent="isDragging = true"
+                                    @dragleave.prevent="isDragging = false"
+                                    @drop.prevent="handleDrop($event); isDragging = false"
+                                    :class="isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-inner' : ''"
+                                    class="mb-6 cursor-pointer rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-6 sm:p-8 text-center hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200">
+                                    <i
+                                        class="bx bx-cloud-upload text-4xl sm:text-5xl text-gray-400 dark:text-gray-500 mb-3"></i>
+                                    <div class="text-sm font-medium dark:text-gray-300">Click or drop files to upload
+                                    </div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Max file size: 100MB</p>
+                                    <input type="file" id="fileUploadInput" @change="handleFileSelect($event)" multiple
+                                        class="hidden">
+                                </div>
+
+                                <!-- Selected Files List -->
+                                <div x-show="selectedFiles.length > 0" class="mb-6">
+                                    <div class="mb-3 flex items-center justify-between">
+                                        <h4 class="font-medium dark:text-white">Selected Files (<span
+                                                x-text="selectedFiles.length"></span>)</h4>
+                                        <button @click="clearSelectedFiles()"
+                                            class="text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 cursor-pointer">
+                                            Clear All
+                                        </button>
+                                    </div>
+
+                                    <div class="space-y-2 max-h-60 overflow-y-auto p-2">
+                                        <template x-for="(file, index) in selectedFiles" :key="index">
+                                            <div
+                                                class="flex items-center justify-between p-3 rounded-lg border bg-gray-50 dark:bg-gray-700 dark:border-gray-600">
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="text-sm font-medium truncate dark:text-gray-300"
+                                                        x-text="file.name"></p>
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400"
+                                                        x-text="formatFileSize(file.size)"></p>
+                                                </div>
+                                                <button @click="removeSelectedFile(index)"
+                                                    class="ml-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 cursor-pointer">
+                                                    <i class="bx bx-x"></i>
+                                                </button>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                                <div class="flex justify-end gap-3">
+                                    <button @click="uploadModalOpen = false"
+                                        class="rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                                        Cancel
+                                    </button>
+                                    <button @click="uploadFiles(); uploadModalOpen = false;"
+                                        :disabled="selectedFiles.length === 0"
+                                        class="rounded-lg bg-black dark:bg-gray-700 px-4 py-2 text-sm text-white dark:text-gray-100 hover:bg-gray-800 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+                                        <i class="bx bx-upload mr-1"></i> Upload
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PROFILE -->
+                    <div class="relative" x-data="{ profileDropdownOpen: false }">
+                        <img @click="profileDropdownOpen = !profileDropdownOpen"
+                            src="https://ui-avatars.com/api/?name={{ @username }}"
+                            class="h-9 w-9 cursor-pointer rounded-full border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500 transition-colors" />
+                        <div x-show="profileDropdownOpen" @click.outside="profileDropdownOpen = false" x-transition
+                            class="absolute right-0 mt-3 w-56 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 shadow-lg z-50">
+                            <div class="border-b border-gray-100 dark:border-gray-700 px-4 py-3">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ @username }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ @email }}</p>
+                            </div>
+                            <a href="/user/dashboard"
+                                class="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                <i class='bx bx-home-alt'></i>
+                                <span>Dashboard</span>
+                            </a>
+                            <a href="/user/profile"
+                                class="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                <i class='bx bx-user'></i>
+                                <span>Profile</span>
+                            </a>
+                            <button @click="toggleDarkMode()"
+                                class="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">
+                                <i class='bx' :class="isDark ? 'bx-sun' : 'bx-moon'"></i>
+                                <span x-text="isDark ? 'Light Mode' : 'Dark Mode'"></span>
+                            </button>
+                            <a href="/logout"
+                                class="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                <i class='bx bx-log-out'></i>
+                                <span>Logout</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-6xl mx-auto py-8 px-4">
+            <!-- Loading State -->
+            <div x-show="loading" class="text-center py-12">
+                <div class="inline-flex items-center gap-2">
+                    <div class="w-2 h-2 bg-gray-900 dark:bg-white rounded-full animate-bounce"
+                        style="animation-delay: 0s"></div>
+                    <div class="w-2 h-2 bg-gray-900 dark:bg-white rounded-full animate-bounce"
+                        style="animation-delay: 0.2s"></div>
+                    <div class="w-2 h-2 bg-gray-900 dark:bg-white rounded-full animate-bounce"
+                        style="animation-delay: 0.4s"></div>
+                </div>
+                <p class="mt-4 text-gray-600 dark:text-gray-400">Loading space data...</p>
+            </div>
+
+            <!-- SPACE DETAIL -->
+            <section id="spaceDetail" x-show="!loading">
+                <!-- Breadcrumb -->
+                <div class="mb-6">
+                    <nav class="flex items-center gap-2 text-sm">
+                        <a href="/user/dashboard"
+                            class="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
+                            Dashboard
+                        </a>
+                        <span class="text-gray-400 dark:text-gray-600">/</span>
+                        <span class="font-medium text-gray-900 dark:text-white" x-text="space?.name || 'Space'"></span>
+                    </nav>
+                </div>
+
+                <!-- Space Header -->
+                <div class="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div class="flex-1">
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+                            <i :class="space.class_icon || 'bx-folder'"
+                                class="bx text-2xl text-gray-600 dark:text-gray-400"></i>
+                            <h2 class="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white"
+                                x-text="space?.name"></h2>
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3"
+                            x-text="space?.description || 'No description'"></p>
+                        <!-- Status & Tags -->
+                        <div class="flex flex-wrap sm:flex-row sm:items-center gap-3">
+                            <span class="text-xs w-fit font-medium px-2 py-1 rounded capitalize" :class="{
+                                        'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400': space.status === 'published',
+                                        'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300': space.status === 'private',
+                                        'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400': space.status === 'archive'
+                                    }" x-text="space.status">
+                            </span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-gray-500 dark:text-gray-400"
+                                    x-text="'Updated ' + formatDate(space?.updated_at)"></span>
+                            </div>
+
+                            <!-- Tags -->
+                            <div class="flex flex-wrap items-center gap-2">
+                                <template x-for="tag in tags" :key="tag.id">
+                                    <span
+                                        class="rounded bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-2 py-1 text-xs"
+                                        x-text="tag.name"></span>
+                                </template>
+
+                                <!-- ADD TAG BUTTON -->
+                                <div>
+                                    <button @click="addTagModalOpen = true"
+                                        class="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 cursor-pointer">
+                                        <i class="bx bx-plus text-xs"></i>Add Tag
+                                    </button>
+
+                                    <!-- Add Tag Modal -->
+                                    <div x-show="addTagModalOpen" style="display: none;"
+                                        x-transition:enter="transition ease-out duration-200"
+                                        x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                                        x-transition:leave="transition ease-in duration-150"
+                                        x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                                        class="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4"
+                                        @click.self="handleBackdropDoubleTap(() => addTagModalOpen = false)">
+
+                                        <div
+                                            class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl w-full max-w-md border border-gray-200 dark:border-gray-700">
+                                            <div class="flex items-center justify-between mb-6">
+                                                <h3 class="font-semibold dark:text-white text-lg">Manage Tags</h3>
+                                                <button @click="addTagModalOpen = false"
+                                                    class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer">
+                                                    <i class="bx bx-x text-2xl"></i>
+                                                </button>
+                                            </div>
+
+                                            <div class="space-y-4">
+                                                <!-- New tag -->
+                                                <form @submit.prevent="addTag()">
+                                                    <label for="newTag"
+                                                        class="block text-sm font-medium dark:text-gray-300 mb-1">New
+                                                        tag</label>
+                                                    <div class="flex flex-col sm:flex-row gap-2">
+                                                        <input type="text" id="newTag" name="newTag"
+                                                            x-model="newTagInput"
+                                                            class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                            placeholder="Enter tag name">
+                                                        <button type="submit"
+                                                            class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                                                            Add
+                                                        </button>
+                                                    </div>
+                                                </form>
+
+                                                <!-- Tag List -->
+                                                <div x-show="tags.length == 0">
+                                                    <div
+                                                        class="block text-sm dark:text-gray-300 mb-1 rounded-lg border border-gray-200 dark:border-gray-700 py-2 px-4">
+                                                        No tags found</div>
+                                                </div>
+                                                <div x-show="tags.length > 0">
+                                                    <label
+                                                        class="block text-sm font-medium dark:text-gray-300 mb-1">Existing
+                                                        tags</label>
+                                                    <div
+                                                        class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+                                                        <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+                                                            <template x-for="tag in tags" :key="tag.id">
+                                                                <li
+                                                                    class="flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                                    <span class="text-sm font-medium dark:text-gray-300"
+                                                                        x-text="tag.name"></span>
+                                                                    <button type="button" @click="removeTag(tag.name)"
+                                                                        class="dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer">
+                                                                        <i class="bx bx-x text-base"></i>
+                                                                    </button>
+                                                                </li>
+                                                            </template>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="grid grid-cols-2 sm:flex gap-2">
+                        <!-- SHARE DIALOG -->
+                        <div x-show="space && space.is_owner == 1">
+                            <button @click="shareModalOpen = true"
+                                class="flex w-full sm:w-auto justify-center items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm transition-colors cursor-pointer">
+                                <i class="bx bx-share-alt"></i> Share
+                            </button>
+
+                            <!-- Share Modal -->
+                            <div x-show="shareModalOpen" style="display: none;"
+                                x-transition:enter="transition ease-out duration-200"
+                                x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                                x-transition:leave="transition ease-in duration-150"
+                                x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                                class="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4"
+                                @click.self="handleBackdropDoubleTap(() => shareModalOpen = false)">
+
+                                <div
+                                    class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl w-full max-w-lg border border-gray-200 dark:border-gray-700">
+                                    <div class="flex items-center justify-between mb-6">
+                                        <h3 class="font-semibold dark:text-white text-lg">Share Space</h3>
+                                        <button @click="shareModalOpen = false"
+                                            class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer">
+                                            <i class="bx bx-x text-2xl"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="space-y-4">
+                                        <!-- Invite by email -->
+                                        <form @submit.prevent="shareSpace()">
+                                            <label for="inviteEmail"
+                                                class="block text-sm font-medium dark:text-gray-300 mb-1">Invite by
+                                                email</label>
+                                            <div class="flex flex-col sm:flex-row gap-2">
+                                                <input type="email" id="inviteEmail" name="inviteEmail"
+                                                    x-model="shareEmail"
+                                                    class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    placeholder="Enter email address">
+                                                <button type="submit"
+                                                    class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                                                    Invite
+                                                </button>
+                                            </div>
+                                        </form>
+
+                                        <!-- Email List -->
+                                        <div x-show="sharedUsers.length == 0">
+                                            <div
+                                                class="block text-sm dark:text-gray-300 mb-1 rounded-lg border border-gray-200 dark:border-gray-700 py-2 px-4">
+                                                No users shared yet</div>
+                                        </div>
+                                        <div x-show="sharedUsers.length > 0">
+                                            <label class="block text-sm font-medium dark:text-gray-300 mb-1">Shared with
+                                                users</label>
+                                            <div
+                                                class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+                                                <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+                                                    <template x-for="user in sharedUsers" :key="user.id">
+                                                        <li
+                                                            class="flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                            <div>
+                                                                <p class="text-sm font-medium dark:text-gray-300"
+                                                                    x-text="user.username"></p>
+                                                                <p class="text-xs text-gray-500 dark:text-gray-400"
+                                                                    x-text="user.email"></p>
+                                                            </div>
+                                                            <button type="button" @click="removeSharedUser(user.id)"
+                                                                class="dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer">
+                                                                <i class="bx bx-x text-base"></i>
+                                                            </button>
+                                                        </li>
+                                                    </template>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <!-- Buttons -->
+                                        <div class="pt-2 flex items-center justify-between gap-3">
+                                            <button type="button" @click="copySpaceLink()"
+                                                class="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
+                                                <i class="bx bx-link"></i> Copy Space Link
+                                            </button>
+
+                                            <button type="button" @click="shareModalOpen = false"
+                                                class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                                                Close
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SETTINGS DIALOG -->
+                        <div x-show="space && space.is_owner == 1">
+                            <button @click="settingsModalOpen = true"
+                                class="flex w-full sm:w-auto justify-center items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm transition-colors cursor-pointer">
+                                <i class="bx bx-cog"></i> Settings
+                            </button>
+
+                            <!-- Settings Modal -->
+                            <div x-show="settingsModalOpen" style="display: none;"
+                                x-transition:enter="transition ease-out duration-200"
+                                x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                                x-transition:leave="transition ease-in duration-150"
+                                x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                                class="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4"
+                                @click.self="handleBackdropDoubleTap(() => settingsModalOpen = false)">
+
+                                <div
+                                    class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl w-full max-w-lg border border-gray-200 dark:border-gray-700">
+                                    <div class="flex items-center justify-between mb-6">
+                                        <h3 class="font-semibold dark:text-white text-lg">Settings Space</h3>
+                                        <button @click="settingsModalOpen = false"
+                                            class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer">
+                                            <i class="bx bx-x text-2xl"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="space-y-4">
+                                        <!-- Space Name -->
+                                        <div>
+                                            <label for="spaceName"
+                                                class="block text-sm font-medium dark:text-gray-300 mb-1">Space
+                                                Name</label>
+                                            <input type="text" id="spaceName" name="spaceName" x-model="settingName"
+                                                class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        </div>
+
+                                        <!-- Description -->
+                                        <div>
+                                            <label for="description"
+                                                class="block text-sm font-medium dark:text-gray-300 mb-1">Description</label>
+                                            <textarea id="description" name="description" rows="3"
+                                                x-model="settingDescription"
+                                                class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                                        </div>
+
+                                        <!-- Status -->
+                                        <div>
+                                            <label for="status"
+                                                class="block text-sm font-medium dark:text-gray-300 mb-1">Status</label>
+                                            <select id="status" name="status" x-model="settingStatus"
+                                                class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                                <option value="published" class="dark:bg-gray-800">Published</option>
+                                                <option value="private" class="dark:bg-gray-800">Private</option>
+                                                <option value="archive" class="dark:bg-gray-800">Archive</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- Icon class -->
+                                        <div>
+                                            <label for="iconClass"
+                                                class="block text-sm font-medium dark:text-gray-300 mb-1">Icon
+                                                class</label>
+                                            <input type="text" id="iconClass" name="iconClass"
+                                                x-model="settingIconClass"
+                                                class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                placeholder="e.g., bx-home">
+                                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                Icon documentation:
+                                                <a class="underline dark:text-blue-400 hover:no-underline"
+                                                    target="_blank" href="https://v2.boxicons.com/">
+                                                    https://v2.boxicons.com/
+                                                </a>
+                                            </p>
+                                        </div>
+
+                                        <!-- Buttons -->
+                                        <div class="pt-2 flex justify-end gap-2">
+                                            <!-- Delete Space -->
+                                            <button @click="deleteSpace()" type="button"
+                                                class="rounded-lg bg-red-600 dark:bg-red-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 dark:hover:bg-red-800 transition-colors cursor-pointer">
+                                                Delete Space
+                                            </button>
+                                            <button type="button" @click="settingsModalOpen = false"
+                                                class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                                                Cancel
+                                            </button>
+                                            <button type="button" @click="updateSpace(); settingsModalOpen = false;"
+                                                class="rounded-lg bg-black dark:bg-gray-700 px-4 py-2.5 text-sm text-white dark:text-gray-100 hover:bg-gray-800 dark:hover:bg-gray-600 cursor-pointer">
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                <!-- Files Table -->
+                <div class="mb-8">
+                    <div
+                        class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+                        <div class="border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+                            <h3 class="font-medium text-gray-900 dark:text-white">Files (<span
+                                    x-text="files.length"></span>)</h3>
+                        </div>
+
+                        <div x-show="files.length === 0" class="p-6 text-center">
+                            <p class="text-gray-500 dark:text-gray-400">No files uploaded yet</p>
+                        </div>
+
+                        <div class="overflow-x-auto" x-show="files.length > 0">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 dark:bg-gray-900">
+                                    <tr>
+                                        <th class="p-3 text-left text-gray-700 dark:text-gray-300 w-full sm:w-auto">File
+                                            Name</th>
+                                        <th class="p-3 text-left text-gray-700 dark:text-gray-300 w-32">Size</th>
+                                        <th class="p-3 text-left text-gray-700 dark:text-gray-300 w-40">Uploaded</th>
+                                        <th class="p-3 text-left text-gray-700 dark:text-gray-300 w-48">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="file in files" :key="file.id">
+                                        <tr
+                                            class="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                            <td class="p-3">
+                                                <div class="flex items-center gap-2">
+                                                    <i class="bx bx-file text-gray-500 dark:text-gray-400"></i>
+                                                    <span @click="viewFile(file.id)"
+                                                        class="text-gray-700 dark:text-gray-300 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer text-nowrap"
+                                                        x-text="file.original_name"></span>
+                                                </div>
+                                            </td>
+                                            <td class="p-3 text-gray-600 dark:text-gray-300 text-nowrap"
+                                                x-text="formatFileSize(file.file_size)">
+                                            </td>
+                                            <td class="p-3 text-gray-600 dark:text-gray-300 text-nowrap"
+                                                x-text="formatDate(file.uploaded_at)"></td>
+                                            <td class="p-3">
+                                                <div class="flex gap-2">
+                                                    <button @click="downloadFile(file.id, file.original_name)"
+                                                        class="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer">
+                                                        <i class="bx bx-download"></i>
+                                                        <span>Download</span>
+                                                    </button>
+                                                    <button @click="deleteFile(file.id, file.original_name)"
+                                                        class="flex items-center gap-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 cursor-pointer">
+                                                        <i class="bx bx-trash"></i>
+                                                        <span>Delete</span>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- README.md Preview -->
+                <div
+                    class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+                    <div
+                        class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+                        <div class="flex items-center gap-2">
+                            <i class="bx bx-book text-gray-500 dark:text-gray-400"></i>
+                            <h3 class="font-medium text-gray-900 dark:text-white">README.md</h3>
+                        </div>
+
+                        <!-- EDIT README BUTTON -->
+                        <div>
+                            <button @click="editReadmeModalOpen = true; editReadmeContent = readme.content"
+                                class="flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm transition-colors cursor-pointer">
+                                <i class="bx bx-edit"></i> Edit
+                            </button>
+
+                            <!-- Edit README Modal -->
+                            <div x-show="editReadmeModalOpen" style="display: none;"
+                                x-transition:enter="transition ease-out duration-200"
+                                x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                                x-transition:leave="transition ease-in duration-150"
+                                x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                                class="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4"
+                                @click.self="handleBackdropDoubleTap(() => editReadmeModalOpen = false)">
+
+                                <div
+                                    class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl w-full max-w-4xl border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-hidden flex flex-col">
+                                    <div class="flex items-center justify-between mb-6">
+                                        <h3 class="font-semibold dark:text-white text-lg">Edit README.md</h3>
+                                        <button @click="editReadmeModalOpen = false"
+                                            class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer">
+                                            <i class="bx bx-x text-2xl"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="flex-1 overflow-hidden flex flex-col">
+                                        <label class="block text-sm font-medium dark:text-gray-300 mb-2">Markdown
+                                            Content</label>
+                                        <div class="flex-1 min-h-0">
+                                            <textarea x-model="editReadmeContent"
+                                                class="w-full h-full min-h-[50vh] rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-3 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none font-mono"></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        class="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+                                        <button type="button" @click="editReadmeModalOpen = false"
+                                            class="rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                                            Cancel
+                                        </button>
+                                        <button type="button" @click="updateReadme(); editReadmeModalOpen = false;"
+                                            class="rounded-lg bg-black dark:bg-gray-700 px-4 py-2.5 text-sm text-white dark:text-gray-100 hover:bg-gray-800 dark:hover:bg-gray-600 cursor-pointer">
+                                            Save Changes
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-4 sm:p-6">
+                        <div class="prose dark:prose-invert max-w-none">
+                            <template x-if="readme.content">
+                                <div class="md-display pb-4" x-html="marked.parse(readme.content)"></div>
+                            </template>
+                            <template x-if="!readme.content">
+                                <p class="text-gray-500 dark:text-gray-400">No README content yet</p>
+                            </template>
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-6">
+                                <p class="text-sm text-gray-600 dark:text-gray-400"
+                                    x-text="'Last updated: ' + formatDate(readme?.updated_at)"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Footer Note -->
+            <div class="mt-8 text-center text-gray-500 dark:text-gray-400 text-sm">
+                <p>&copy; 2026 TinySpaces. All rights reserved.</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- TOAST COMPONENT -->
+    <div x-data>
+        <!-- Toast Display -->
+        <div x-show="$store.toast.visible" style="display: none;" x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
+            x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0"
+            x-transition:leave-end="opacity-0 translate-y-2"
+            class="fixed top-6 right-6 flex items-center gap-2 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 z-50 px-4 py-3 text-sm shadow-lg">
+            <i :class="{
+                'bx-check-circle text-green-600 dark:text-green-400': $store.toast.type === 'success',
+                'bx-x-circle text-red-600 dark:text-red-400': $store.toast.type === 'error',
+                'bx-info-circle text-blue-600 dark:text-blue-400': $store.toast.type === 'info'
+            }" class="bx text-lg"></i>
+            <span x-text="$store.toast.message" class="dark:text-gray-300"></span>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+vendor/
+composer.lock
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+
+# Temporary & Cache Files
+tmp/
+storage/database.sqlite
+storage/database.sqlite-journal
+*.log
+*.tmp
+
+# Operating System
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# PHP
+php_errors.log
+.phpunit.result.cache
+
+# Compiled CSS (keep source)
+public/css/style.css.map
+
+# User Uploads (keep directory structure)
+public/uploads/spaces/*/
+!public/uploads/spaces/.gitkeep
+
+# Build artifacts
+dist/
+build/
+
+# IDE
+.editorconfig
+*.iml
+
+# NPM Debug
+npm-debug.log
+yarn-error.log
+
+# System
+*.pem
+*.key

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="id" x-data="themeConfig">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proyek Saya</title>
+    <link href="/public/css/style.css" rel="stylesheet">
+    <link href="/node_modules/boxicons/css/boxicons.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-100 dark:bg-gray-900 dark:text-gray-100">
+    <!-- Navbar -->
+    <nav class="bg-white dark:bg-gray-800 shadow-lg">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <i class='bx bxl-tailwind-css text-2xl text-blue-500'></i>
+                    <span class="ml-2 text-xl font-semibold dark:text-white">Proyek Saya</span>
+                </div>
+
+                <div class="flex items-center space-x-4">
+                    <!-- Darkmode Toggle -->
+                    <button @click="toggleDarkMode()"
+                        class="px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200 flex items-center gap-1">
+                        <i class='bx' :class="isDark ? 'bx-sun' : 'bx-moon'"></i>
+                        <span x-text="isDark ? 'Light' : 'Dark'"></span>
+                    </button>
+
+                    <!-- Mobile menu button -->
+                    <button @click="open = !open" class="md:hidden dark:text-white">
+                        <i class='bx bx-menu text-2xl'></i>
+                    </button>
+
+                    <!-- Desktop menu -->
+                    <div class="hidden md:flex space-x-4">
+                        <a href="#"
+                            class="px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">Dashboard</a>
+                        <a href="#"
+                            class="px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">Profile</a>
+                        <a href="#"
+                            class="px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">Logout</a>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Mobile menu -->
+            <div x-show="open" class="md:hidden">
+                <a href="#"
+                    class="block px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">Dashboard</a>
+                <a href="#"
+                    class="block px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">Profile</a>
+                <a href="#"
+                    class="block px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h1 class="text-3xl font-bold mb-4 dark:text-white">
+                <i class='bx bx-rocket'></i> Selamat Datang!
+            </h1>
+            <p class="text-gray-600 dark:text-gray-300 mb-6">
+                Proyek Anda sudah siap dengan Fat-Free Framework v3.8, Tailwind CSS, dan Alpine.js!
+            </p>
+
+            <div class="grid md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                    <i class='bx bxl-php text-4xl text-blue-500 mb-2'></i>
+                    <h3 class="font-bold text-lg dark:text-white">Backend</h3>
+                    <p class="dark:text-gray-300">Fat-Free Framework v3.8</p>
+                </div>
+                <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                    <i class='bx bxl-tailwind-css text-4xl text-green-500 mb-2'></i>
+                    <h3 class="font-bold text-lg dark:text-white">Styling</h3>
+                    <p class="dark:text-gray-300">Tailwind CSS</p>
+                </div>
+                <div class="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
+                    <i class='bx bxl-javascript text-4xl text-purple-500 mb-2'></i>
+                    <h3 class="font-bold text-lg dark:text-white">Interactivity</h3>
+                    <p class="dark:text-gray-300">Alpine.js + Boxicons</p>
+                </div>
+            </div>
+
+            <button @click="alert('Hello dari Alpine.js!')"
+                class="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center">
+                <i class='bx bx-check-circle mr-2'></i> Klik Saya
+            </button>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="/node_modules/alpinejs/dist/cdn.min.js" defer></script>
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('themeConfig', () => ({
+                open: false,
+                isDark: localStorage.getItem('theme') === 'dark',
+
+                toggleDarkMode() {
+                    this.isDark = !this.isDark;
+                    localStorage.setItem('theme', this.isDark ? 'dark' : 'light');
+                    this.updateTheme();
+                },
+
+                updateTheme() {
+                    if (this.isDark) {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                    }
+                },
+
+                init() {
+                    // Check local storage or system preference
+                    if (localStorage.getItem('theme') === 'dark' ||
+                        (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                        this.isDark = true;
+                    }
+                    this.updateTheme();
+                }
+            }));
+        });
+    </script>
+</body>
+
+</html>

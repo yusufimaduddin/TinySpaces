@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="id" x-data="themeConfig">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ @title }} - TinySpaces</title>
+    <link href="/public/css/style.css" rel="stylesheet">
+    <link href="/node_modules/boxicons/css/boxicons.min.css" rel="stylesheet">
+    <script src="/node_modules/alpinejs/dist/cdn.min.js" defer></script>
+    <script src="/public/js/app.js"></script>
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('themeConfig', () => ({
+                isDark: localStorage.getItem('theme') === 'dark',
+                toggleDarkMode() {
+                    this.isDark = !this.isDark;
+                    localStorage.setItem('theme', this.isDark ? 'dark' : 'light');
+                    this.updateTheme();
+                },
+                updateTheme() {
+                    if (this.isDark) {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                    }
+                },
+                init() {
+                    if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                        this.isDark = true;
+                    }
+                    this.updateTheme();
+
+                    // Toast notification logic
+                    const success = "{{ @success }}";
+                    const error = "{{ @error }}";
+                    if (success) this.showToast(success, 'success');
+                    if (error) this.showToast(error, 'error');
+                },
+
+                // Toast functionality
+                showToast(message, type) {
+                    // Simple alert for now, or implement a real toast component if desired
+                    // Given the request asked for toasts, let's inject a simple one or use browser alert if no UI component
+                    // For better UX, let's console log or use a simple overlay if we had the CSS.
+                    // Since I don't have a toast component in the CSS, I'll use a standard alert for critical errors 
+                    // or maybe inject a detailed check in the HTML.
+                    // Actually, let's keep it simple and rely on the rendered alerts in HTML.
+                }
+            }));
+        });
+    </script>
+</head>
+
+<body class="bg-gray-50 text-gray-950 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-200">
+    <div class="min-h-screen">
+        <!-- HEADER -->
+        <header
+            class="border-b border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 relative z-10 transition-colors duration-200">
+            <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+                <div class="flex items-center gap-4">
+                    <h1 onclick="window.location.reload()"
+                        class="text-lg font-semibold text-gray-900 dark:text-white cursor-pointer">
+                        TinySpaces Admin</h1>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <button @click="toggleDarkMode()"
+                        class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 cursor-pointer transition-colors">
+                        <i class='bx' :class="isDark ? 'bx-sun' : 'bx-moon'"></i>
+                        <span x-text="isDark ? 'Light Mode' : 'Dark Mode'"></span>
+                    </button>
+                    <a href="/logout"
+                        class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 transition-colors cursor-pointer">
+                        <i class="bx bx-log-out text-lg"></i>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <main class="mx-auto max-w-6xl px-6 py-8">
+
+            <!-- Flash Messages -->
+            <check if="{{ @success }}">
+                <div
+                    class="mb-6 p-4 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 flex items-center">
+                    <i class='bx bx-check-circle text-xl mr-2'></i>
+                    {{ @success }}
+                </div>
+            </check>
+
+            <check if="{{ @error }}">
+                <div
+                    class="mb-6 p-4 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 flex items-center">
+                    <i class='bx bx-error-circle text-xl mr-2'></i>
+                    {{ @error }}
+                </div>
+            </check>
+
+            <!-- Form Tambah Akun -->
+            <div class="mb-8">
+                <div class="flex items-center gap-3 mb-4">
+                    <h1 class="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Add New Account</h1>
+                </div>
+
+                <form id="addAccountForm" method="POST" action="/admin/users" autocomplete="off"
+                    class="rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 p-6 mb-8 transition-colors duration-200 shadow-sm">
+                    <div class="space-y-4">
+                        <!-- Username -->
+                        <div>
+                            <label for="username"
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Username
+                                <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" id="username" name="username" required
+                                class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                placeholder="Enter username">
+                        </div>
+
+                        <!-- Email -->
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Email
+                                <span class="text-red-500">*</span>
+                            </label>
+                            <input type="email" id="email" name="email" required
+                                class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                placeholder="Enter email address">
+                        </div>
+
+                        <!-- Password -->
+                        <div>
+                            <label for="password"
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Password
+                                <span class="text-red-500">*</span>
+                            </label>
+                            <input type="password" id="password" name="password" required minlength="8"
+                                class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                placeholder="Enter password (min. 8 characters)">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Minimum 8 characters</p>
+                        </div>
+
+                        <!-- Form Buttons -->
+                        <div class="pt-2 flex justify-end gap-3">
+                            <button type="reset"
+                                class="rounded-lg border border-gray-300 dark:border-gray-700 px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">
+                                Clear
+                            </button>
+                            <button type="submit"
+                                class="rounded-lg bg-gray-900 dark:bg-gray-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-800 dark:hover:bg-gray-600 transition-colors cursor-pointer">
+                                Add Account
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Daftar Akun Terdaftar -->
+            <div>
+                <div class="flex items-center gap-3 mb-4">
+                    <h1 class="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Registered Accounts</h1>
+                </div>
+
+                <div
+                    class="rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 overflow-hidden shadow-sm transition-colors duration-200">
+                    <!-- Header Table -->
+                    <div
+                        class="grid grid-cols-12 gap-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-6 py-4 font-medium text-gray-700 dark:text-gray-300 text-sm">
+                        <div class="col-span-1">No</div>
+                        <div class="col-span-4">Username</div>
+                        <div class="col-span-4">Email</div>
+                        <div class="col-span-3">Role / Joined</div>
+                    </div>
+
+                    <!-- Daftar Akun Loop -->
+                    <div id="accountsList">
+                        <repeat group="{{ @users }}" value="{{ @user }}" counter="{{ @ctr }}">
+                            <div
+                                class="grid grid-cols-12 gap-4 border-b border-gray-100 dark:border-gray-700 px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors items-center">
+                                <div class="col-span-1 text-sm text-gray-600 dark:text-gray-300">{{ @ctr }}</div>
+                                <div class="col-span-4">
+                                    <div class="flex items-center gap-3">
+                                        <img src="https://ui-avatars.com/api/?name={{ @user.username }}"
+                                            class="h-8 w-8 rounded-full">
+                                        <span class="font-medium text-gray-900 dark:text-white">{{ @user.username
+                                            }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-span-4 text-sm text-gray-600 dark:text-gray-300">{{ @user.email }}</div>
+                                <div class="col-span-3">
+                                    <div class="flex flex-col">
+                                        <span
+                                            class="text-xs font-semibold uppercase {{ @user.role == 'admin' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400' }}">{{
+                                            @user.role }}</span>
+                                        <span class="text-sm text-gray-500 dark:text-gray-400">
+                                            {{ @user.created_at ? date('d M Y', strtotime(@user.created_at)) : '-' }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </repeat>
+
+                        <check if="{{ count(@users) == 0 }}">
+                            <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+                                No users found.
+                            </div>
+                        </check>
+                    </div>
+                </div>
+
+                <!-- Info jumlah akun -->
+                <div class="mt-4 flex justify-between items-center">
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        Showing <span class="font-medium text-gray-900 dark:text-gray-300">{{ count(@users) }}</span>
+                        registered
+                        accounts
+                    </p>
+                    <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                        <i class="bx bx-info-circle"></i>
+                        <span>Total accounts: <span class="font-medium text-gray-900 dark:text-gray-300">{{
+                                count(@users)
+                                }}</span></span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,414 @@
+/* CSS Variables khusus untuk md-display */
+.md-display {
+  /* Color Palette - Base & Shades */
+  --md-gray-50: #f9fafb;
+  --md-gray-100: #f3f4f6;
+  --md-gray-200: #e5e7eb;
+  --md-gray-300: #d1d5db;
+  --md-gray-400: #9ca3af;
+  --md-gray-500: #6b7280;
+  --md-gray-600: #4b5563;
+  --md-gray-700: #374151;
+  --md-gray-800: #1f2937;
+  --md-gray-900: #111827;
+
+  /* Blue Colors (Primary) */
+  --md-blue-100: #dbeafe;
+  --md-blue-200: #bfdbfe;
+  --md-blue-300: #93c5fd;
+  --md-blue-400: #60a5fa;
+  --md-blue-500: #3b82f6;
+  --md-blue-600: #2563eb;
+  --md-blue-700: #1d4ed8;
+
+  /* Red Colors */
+  --md-red-300: #fca5a5;
+  --md-red-400: #f87171;
+  --md-red-500: #ef4444;
+  --md-red-600: #dc2626;
+
+  /* Green Colors */
+  --md-green-300: #86efac;
+  --md-green-400: #4ade80;
+  --md-green-500: #22c55e;
+  --md-green-600: #16a34a;
+  --md-green-800: #166534;
+  --md-green-900: #14532d;
+
+  /* Semantic Colors */
+  --md-white: #ffffff;
+  --md-black: #000000;
+
+  /* Border Colors */
+  --md-border-light: var(--md-gray-200);
+  --md-border-medium: var(--md-gray-300);
+
+  /* Text Colors */
+  --md-text-primary: var(--md-gray-900);
+  --md-text-secondary: var(--md-gray-600);
+  --md-text-dark: var(--md-gray-900);
+}
+
+/* Dark theme overrides untuk md-display */
+.dark .md-display {
+  --md-border-light: #374151;
+  --md-border-medium: #4b5563;
+  --md-text-primary: #f3f4f6;
+  --md-text-secondary: #bec4cc;
+  --md-text-dark: #f9fafb;
+}
+
+/* Styles untuk md-display */
+.md-display {
+  line-height: 1.45;
+  color: var(--md-text-primary);
+  font-size: 14px;
+  margin: 0 auto;
+  background: var(--md-white);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: auto;
+  display: block;
+}
+
+.dark .md-display {
+  background: #1f2937;
+}
+
+.md-display * {
+  box-shadow: none !important;
+}
+
+/* Headings */
+.md-display h1,
+.md-display h2,
+.md-display h3,
+.md-display h4,
+.md-display h5,
+.md-display h6 {
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
+  line-height: 1.25;
+  color: var(--md-text-dark);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.md-display h1 {
+  font-size: 20px;
+  border-bottom: 1px solid var(--md-border-light);
+  padding-bottom: 0.35rem;
+  margin-top: 0.6rem;
+}
+
+.md-display h2 {
+  font-size: 17px;
+}
+
+.md-display h3 {
+  font-size: 15px;
+  color: var(--md-gray-900);
+}
+
+.dark .md-display h3 {
+  color: var(--md-gray-300);
+}
+
+.md-display h4 {
+  font-size: 14px;
+}
+
+.md-display h5 {
+  font-size: 13px;
+  color: var(--md-gray-700);
+}
+
+.dark .md-display h5 {
+  color: var(--md-gray-400);
+}
+
+.md-display h6 {
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--md-gray-600);
+  letter-spacing: 0.06em;
+}
+
+.dark .md-display h6 {
+  color: var(--md-gray-500);
+}
+
+/* Paragraphs */
+.md-display p {
+  margin: 0.6rem 0;
+  color: var(--md-text-secondary);
+  font-size: 14px;
+}
+
+/* Links */
+.md-display a {
+  color: var(--md-blue-600);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  font-weight: 500;
+}
+
+.dark .md-display a {
+  color: var(--md-blue-400);
+}
+
+.md-display a:hover {
+  border-bottom-color: var(--md-blue-200);
+  color: var(--md-blue-700);
+}
+
+.dark .md-display a:hover {
+  border-bottom-color: var(--md-blue-400);
+  color: var(--md-blue-400);
+}
+
+.md-display strong {
+  font-weight: 600;
+}
+
+/* Lists */
+.md-display ul,
+.md-display ol {
+  margin: 0.6rem 0;
+  padding-left: 1.2rem;
+  font-size: 14px;
+}
+
+.md-display ul {
+  list-style-type: circle;
+}
+
+.md-display ol {
+  list-style-type: decimal;
+}
+
+.md-display li {
+  margin: 0.25rem 0;
+  line-height: 1.4;
+  color: var(--md-text-secondary);
+}
+
+/* Blockquote */
+.md-display blockquote {
+  margin: 0.8rem 0;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--md-gray-100);
+  border-left: 3px solid var(--md-blue-400);
+  background-color: transparent;
+  color: var(--md-text-secondary);
+  font-size: 13.5px;
+}
+
+.dark .md-display blockquote {
+  border-color: var(--md-gray-700);
+  border-left-color: var(--md-blue-400);
+}
+
+/* Inline Code */
+.md-display code {
+  background-color: var(--md-gray-100);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono",
+    "Noto Sans Mono", monospace;
+  font-size: 12px;
+  color: var(--md-blue-700);
+  border: 1px solid var(--md-border-medium);
+  white-space: pre-wrap;
+}
+
+.dark .md-display code {
+  background-color: rgba(55, 65, 81, 0.5);
+  border-color: var(--md-gray-600);
+  color: var(--md-blue-400);
+}
+
+/* Code Blocks */
+.md-display pre {
+  background-color: var(--md-gray-100);
+  padding: 0.6rem 0.7rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.8rem 0;
+  border: 1px solid var(--md-border-medium);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono",
+    monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--md-blue-700);
+}
+
+.dark .md-display pre {
+  background-color: rgba(55, 65, 81, 0.5);
+  border-color: var(--md-gray-600);
+  color: var(--md-blue-400);
+}
+
+/* Code inside pre */
+.md-display pre code {
+  background: none !important;
+  padding: 0;
+  border: none;
+  color: inherit;
+  font-size: 12px;
+}
+
+/* Tables */
+.md-display table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.8rem 0;
+  font-size: 13px;
+  border: 1px solid var(--md-border-medium);
+  background: transparent;
+}
+
+.md-display th,
+.md-display td {
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+  vertical-align: middle;
+  border: 1px solid var(--md-border-light);
+  color: var(--md-text-primary);
+}
+
+.md-display thead th {
+  background: var(--md-gray-100);
+  font-weight: 600;
+  color: var(--md-gray-900);
+  font-size: 12.5px;
+}
+
+.dark .md-display thead th {
+  background: rgba(55, 65, 81, 0.5);
+  color: var(--md-gray-300);
+}
+
+.md-display tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.md-display tr:nth-child(even) td {
+  background: transparent;
+}
+
+/* Images */
+.md-display img {
+  width: fit-content;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 0.6rem 0;
+  border: 1px solid var(--md-border-medium);
+}
+
+/* Checkboxes */
+.md-display input[type="checkbox"] {
+  margin-right: 0.5rem;
+  transform: scale(1);
+  vertical-align: middle;
+}
+
+.md-display input[type="checkbox"]:checked {
+  accent-color: var(--md-blue-600);
+}
+
+.dark .md-display input[type="checkbox"]:checked {
+  accent-color: var(--md-blue-400);
+}
+
+/* Horizontal Rule */
+.md-display hr {
+  height: 1px;
+  background-color: var(--md-border-medium);
+  border: none;
+  margin: 1.2rem 0;
+}
+
+/* Utilities */
+.md-display .muted {
+  color: var(--md-text-secondary);
+  font-size: 12px;
+}
+
+.md-display .lead {
+  font-size: 15px;
+  color: var(--md-gray-700);
+  margin-bottom: 0.6rem;
+}
+
+.dark .md-display .lead {
+  color: var(--md-gray-400);
+}
+
+/* Scrollbar for code blocks */
+.md-display pre::-webkit-scrollbar {
+  height: 6px;
+}
+
+.md-display pre::-webkit-scrollbar-thumb {
+  background-color: var(--md-gray-300);
+}
+
+.md-display pre::-webkit-scrollbar-thumb:hover {
+  background-color: var(--md-gray-400);
+}
+
+.md-display pre::-webkit-scrollbar-track {
+  background: var(--md-white);
+}
+
+.dark .md-display pre::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+/* =========================
+   Responsive Styles
+   ========================= */
+@media (max-width: 768px) {
+  .md-display {
+    padding: 0;
+    font-size: 13px;
+  }
+
+  .md-display h1 {
+    font-size: 18px;
+  }
+
+  .md-display pre {
+    padding: 0.5rem;
+    font-size: 12px;
+  }
+
+  .md-display th,
+  .md-display td {
+    padding: 0.4rem 0.5rem;
+    font-size: 12px;
+  }
+}
+
+/* =========================
+   Print Styles
+   ========================= */
+@media print {
+  .md-display {
+    color: #000;
+    background: #fff;
+    padding: 0.4rem;
+  }
+
+  .md-display a {
+    text-decoration: underline;
+    color: #000;
+  }
+
+  .md-display pre,
+  .md-display blockquote {
+    border: 1px solid #000;
+  }
+}

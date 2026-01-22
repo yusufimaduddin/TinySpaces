@@ -1,0 +1,41 @@
+{
+  "name": "tinyspace",
+  "version": "1.0.0",
+  "description": "A lightweight, open-source file hosting and sharing platform built with PHP Fat-Free Framework, Alpine.js, and Tailwind CSS",
+  "main": "index.php",
+  "scripts": {
+    "dev": "tailwindcss -i ./src/input.css -o ./public/css/style.css --watch",
+    "build": "tailwindcss -i ./src/input.css -o ./public/css/style.css --minify"
+  },
+  "keywords": [
+    "file-hosting",
+    "file-sharing",
+    "php",
+    "fat-free-framework",
+    "alpine-js",
+    "tailwind-css",
+    "open-source"
+  ],
+  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/tinyspace"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/tinyspace/issues"
+  },
+  "homepage": "https://github.com/yourusername/tinyspace",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.1.18",
+    "alpinejs": "^3.15.4",
+    "boxicons": "^2.1.4",
+    "dayjs": "^1.11.10"
+  }
+}
