@@ -1,5 +1,5 @@
 # TinySpaces
-
+![TinySpaces Capture](https://i.ibb.co.com/HL87JLwk/tinyspace.jpg)
 [![License: ISC](https://img.shields.io/badge/License-ISC-yellow.svg)](https://opensource.org/licenses/ISC)
 
 A lightweight, open-source file hosting and sharing platform built with PHP Fat-Free Framework, Alpine.js, and Tailwind CSS.
@@ -74,8 +74,8 @@ A lightweight, open-source file hosting and sharing platform built with PHP Fat-
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/tinyspace.git
-cd tinyspace
+git clone https://github.com/yusufimaduddin/TinySpaces
+cd TinySpaces
 ```
 
 ### 2. Install Dependencies
