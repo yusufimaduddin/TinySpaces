@@ -17,7 +17,7 @@ class UserController
     {
         AuthController::requireLogin();
 
-        $this->f3->set('title', 'User Dashboard');
+        $this->f3->set('title', 'Dashboard');
         $this->f3->set('description', 'Manage your file spaces and share them easily.');
         $this->f3->set('author', $this->f3->get('SESSION.username'));
         $this->f3->set('username', $this->f3->get('SESSION.username'));

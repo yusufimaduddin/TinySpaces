@@ -43,7 +43,7 @@ class Space extends DB\SQL\Mapper
             $params[] = $searchTerm;
         }
 
-        $sql .= " GROUP BY s.id ORDER BY s.created_at ASC";
+        $sql .= " GROUP BY s.id ORDER BY s.created_at DESC";
 
         return $db->exec($sql, $params);
     }
