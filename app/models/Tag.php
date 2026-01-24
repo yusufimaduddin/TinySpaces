@@ -93,6 +93,8 @@ class Tag extends DB\SQL\Mapper
             ];
         } catch (Exception $e) {
             return ['success' => false, 'message' => 'Error adding tags: ' . $e->getMessage()];
+        } finally {
+            $this->cleanupOrphanedTags();
         }
     }
 
@@ -139,6 +141,8 @@ class Tag extends DB\SQL\Mapper
             return ['success' => true, 'message' => 'Tag removed successfully'];
         } catch (Exception $e) {
             return ['success' => false, 'message' => 'Error removing tag: ' . $e->getMessage()];
+        } finally {
+            $this->cleanupOrphanedTags();
         }
     }
 
@@ -175,6 +179,17 @@ class Tag extends DB\SQL\Mapper
              AND (s.owner_id = ? OR (s.status = 'published' AND sa.user_id = ?))
              ORDER BY s.updated_at DESC",
             [$userId, strtolower($tagName), '%' . strtolower($tagName) . '%', $userId, $userId]
+        );
+    }
+
+    /**
+     * Remove tags that have no relations to any space
+     */
+    public function cleanupOrphanedTags()
+    {
+        $db = Database::getInstance();
+        $db->exec(
+            "DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM space_tags)"
         );
     }
 }

@@ -29,6 +29,9 @@ A lightweight, open-source file hosting and sharing platform built with PHP Fat-
 - ✅ Share spaces with other users
 - ✅ Filter and search spaces
 - ✅ Edit space details and README content
+- ✅ **Review Mode**: Read-only public link access toggle **update**
+- ✅ **Recently Modified**: Quick access to most recently updated spaces **update**
+- ✅ **Auto Tag Cleanup**: Automatic removal of unused tags **update**
 
 ### UI/UX
 - ✅ Dark mode support
@@ -189,6 +192,7 @@ tinyspace/
 - description (TEXT)
 - status (VARCHAR: 'published'|'private'|'archive')
 - class_icon (VARCHAR for Boxicons class)
+- review_mode (INTEGER 0|1)
 - owner_id (FK -> users.id)
 - created_at (TIMESTAMP)
 - updated_at (TIMESTAMP)
@@ -271,7 +275,10 @@ space_tags:
 - `PUT /api/spaces/:id` - Update space
 - `DELETE /api/spaces/:id` - Delete space
 - `POST /api/spaces/:id/share` - Share space
+- `POST /api/spaces/:id/review-mode` - Toggle review mode
 - `PUT /api/spaces/:id/readme` - Update README
+- `GET /api/spaces/recent` - Get 3 most recently updated spaces
+- `GET /user/review/:id` - Read-only space view
 
 ### Files
 - `POST /api/spaces/:id/upload` - Upload file
@@ -377,6 +384,14 @@ npm run build
 - PHP 7.4+ with SQLite support
 - Write permissions on storage/ and public/uploads/
 - Optional: Node.js for CSS builds
+
+## 🌟 Latest Updates (Jan 2026)
+- **Enhanced Review Mode**: Added strict access control and a toggleable public link.
+- **Dashboard Refresh**: Added "Recently Modified" section and improved sorting (oldest created first).
+- **Date Formatting**: Unified date display to `DD MMM YYYY` format.
+- **Tag Management**: Integrated automatic cleanup for orphaned tags.
+- **Auth Fix**: Resolved database initialization issues for custom usernames.
+- **UI Polishing**: Improved modal transitions and button styles.
 
 ## 📄 License
 

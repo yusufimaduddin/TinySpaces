@@ -38,6 +38,7 @@ document.addEventListener('alpine:init', () => {
         selectedFiles: [],
         newTagInput: '',
         shareEmail: '',
+        reviewMode: false,
 
         // Settings form state
         settingName: '',
@@ -75,12 +76,13 @@ document.addEventListener('alpine:init', () => {
                     this.sharedUsers = data.shared_users || [];
                     this.readme = data.readme || '';
                     this.editReadmeContent = this.readme;
+                    this.reviewMode = !!this.space.review_mode;
 
                     // Initialize settings form fields
                     this.settingName = this.space.name;
                     this.settingDescription = this.space.description;
                     this.settingStatus = this.space.status;
-                    this.settingIconClass = this.space.icon_class || this.space.icon || '';
+                    this.settingIconClass = this.space.class_icon || this.space.icon_class || this.space.icon || '';
                 } else {
                     showAlpineToast(data.message || 'Failed to load space data', 'error');
                 }
@@ -335,10 +337,37 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
+        async toggleReviewMode() {
+            try {
+                const response = await fetch(`/api/spaces/${this.spaceId}/review-mode`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        enabled: this.reviewMode
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlpineToast(result.message, 'success');
+                } else {
+                    this.reviewMode = !this.reviewMode; // Revert on failure
+                    showAlpineToast(result.message || 'Failed to toggle review mode', 'error');
+                }
+            } catch (error) {
+                this.reviewMode = !this.reviewMode; // Revert
+                showAlpineToast('Error: ' + error.message, 'error');
+            }
+        },
+
         copySpaceLink() {
-            const link = window.location.href;
+            // Generate Review Link
+            const link = `${window.location.protocol}//${window.location.host}/user/review/${this.spaceId}`;
             navigator.clipboard.writeText(link).then(() => {
-                showAlpineToast('Space link copied to clipboard', 'success');
+                showAlpineToast('Review link copied to clipboard', 'success');
             }).catch(() => {
                 showAlpineToast('Failed to copy link', 'error');
             });

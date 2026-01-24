@@ -380,17 +380,41 @@
                                             </div>
                                         </div>
 
-                                        <!-- Buttons -->
-                                        <div class="pt-2 flex items-center justify-between gap-3">
-                                            <button type="button" @click="copySpaceLink()"
-                                                class="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
-                                                <i class="bx bx-link"></i> Copy Space Link
-                                            </button>
+                                        <!-- Review Permission -->
+                                        <div class="pt-4">
+                                            <div class="flex items-center justify-between mb-4">
+                                                <div>
+                                                    <h4 class="text-sm font-medium dark:text-white">Review Mode</h4>
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400">Allow logged-in
+                                                        users to review and download files.</p>
+                                                </div>
+                                                <!-- Toggle Switch -->
+                                                <div
+                                                    class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                                    <input type="checkbox" name="toggle" id="reviewModeToggle"
+                                                        x-model="reviewMode" @change="toggleReviewMode()"
+                                                        class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 dark:border-gray-600" />
+                                                    <label for="reviewModeToggle"
+                                                        class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 dark:bg-gray-700 cursor-pointer"></label>
+                                                </div>
+                                            </div>
 
-                                            <button type="button" @click="shareModalOpen = false"
-                                                class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                                                Close
-                                            </button>
+                                            <div x-show="reviewMode" x-transition
+                                                class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-900/50 rounded-lg p-3 mb-4">
+                                                <p class="text-xs text-yellow-800 dark:text-yellow-200">
+                                                    <strong>Caution:</strong> This link provides read-only access to
+                                                    view activity and download files within this space. Please ensure
+                                                    you share this link only with trusted individuals, as access is open
+                                                    to anyone with the link while Review Mode is active.
+                                                </p>
+                                            </div>
+
+                                            <div x-show="reviewMode" class="flex justify-end">
+                                                <button type="button" @click="copySpaceLink()"
+                                                    class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm text-white hover:bg-blue-700 transition-colors cursor-pointer flex items-center gap-2">
+                                                    <i class="bx bx-link"></i> Copy Review Link
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

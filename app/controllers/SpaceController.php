@@ -31,6 +31,20 @@ class SpaceController
     }
 
     /**
+     * GET /api/spaces/recent - Get recently modified spaces
+     */
+    public function getRecentlyModified()
+    {
+        AuthController::requireLogin();
+
+        $userId = $this->f3->get('SESSION.user_id');
+
+        $spaces = $this->spaceModel->getRecentlyModifiedSpaces($userId, 3);
+
+        $this->jsonResponse(['success' => true, 'spaces' => $spaces]);
+    }
+
+    /**
      * POST /api/spaces - Create new space
      */
     public function createSpace()
@@ -303,6 +317,28 @@ class SpaceController
 
         $result = $this->spaceModel->shareSpace($spaceId, $data['email'], $userId);
         $this->jsonResponse($result);
+    }
+
+    /**
+     * POST /api/spaces/@id/review-mode - Toggle review mode
+     */
+    public function toggleReviewMode()
+    {
+        AuthController::requireLogin();
+
+        $spaceId = $this->f3->get('PARAMS.id');
+        $userId = $this->f3->get('SESSION.user_id');
+        $data = json_decode($this->f3->get('BODY'), true);
+
+        $enabled = isset($data['enabled']) ? (bool) $data['enabled'] : false;
+
+        $result = $this->spaceModel->toggleReviewMode($spaceId, $enabled, $userId);
+
+        if ($result) {
+            $this->jsonResponse(['success' => true, 'message' => 'Review mode ' . ($enabled ? 'enabled' : 'disabled')]);
+        } else {
+            $this->jsonResponse(['success' => false, 'message' => 'Failed to update review mode'], 403);
+        }
     }
 
     /**

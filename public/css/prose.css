@@ -168,6 +168,7 @@
 }
 
 .md-display strong {
+  color: var(--md-text-primary);
   font-weight: 600;
 }
 

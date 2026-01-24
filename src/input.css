@@ -5,3 +5,18 @@ z-dropdown {
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+.toggle-checkbox:checked {
+    right: 0;
+    border-color: #10B981;
+}
+
+.toggle-checkbox:checked+.toggle-label {
+    background-color: #10B981;
+}
+
+.toggle-checkbox {
+    right: 18px;
+    /* Initial position */
+    transition: all 0.3s;
+}

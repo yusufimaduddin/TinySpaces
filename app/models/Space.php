@@ -43,9 +43,30 @@ class Space extends DB\SQL\Mapper
             $params[] = $searchTerm;
         }
 
-        $sql .= " GROUP BY s.id ORDER BY s.updated_at DESC";
+        $sql .= " GROUP BY s.id ORDER BY s.created_at ASC";
 
         return $db->exec($sql, $params);
+    }
+
+    /**
+     * Get recently modified spaces for a user
+     */
+    public function getRecentlyModifiedSpaces($userId, $limit = 3)
+    {
+        $db = Database::getInstance();
+
+        return $db->exec(
+            "SELECT s.*, 
+                   (SELECT COUNT(*) FROM files f WHERE f.space_id = s.id) as file_count
+            FROM spaces s
+            WHERE s.owner_id = ? OR EXISTS(
+                SELECT 1 FROM space_access sa 
+                WHERE sa.space_id = s.id AND sa.user_id = ?
+            )
+            ORDER BY s.updated_at DESC
+            LIMIT ?",
+            [$userId, $userId, $limit]
+        );
     }
 
     /**
@@ -78,6 +99,11 @@ class Space extends DB\SQL\Mapper
 
         // For non-owners, check if published and has shared access
         if ($space['status'] === 'published' && $space['has_shared_access']) {
+            return $space;
+        }
+
+        // For review mode (must be published)
+        if ($space['status'] === 'published' && !empty($space['review_mode'])) {
             return $space;
         }
 
@@ -148,6 +174,24 @@ class Space extends DB\SQL\Mapper
             $db->rollback();
             return false;
         }
+    }
+
+    /**
+     * Toggle review mode
+     */
+    public function toggleReviewMode($spaceId, $enabled, $userId)
+    {
+        $this->load(['id = ? AND owner_id = ?', $spaceId, $userId]);
+
+        if ($this->dry()) {
+            return false;
+        }
+
+        $this->review_mode = $enabled ? 1 : 0;
+        $this->updated_at = date('Y-m-d H:i:s');
+        $this->save();
+
+        return true;
     }
 
     /**

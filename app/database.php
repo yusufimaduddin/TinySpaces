@@ -128,13 +128,21 @@ class Database
 
         // Insert default admin user if not exists
         self::createDefaultAdmin();
+
+        // Migration: Add review_mode column if not exists
+        try {
+            $db->exec("ALTER TABLE spaces ADD COLUMN review_mode INTEGER DEFAULT 0");
+        } catch (\Exception $e) {
+            // Column likely already exists, ignore
+        }
     }
 
     private static function createDefaultAdmin()
     {
         $db = self::getInstance();
 
-        $result = $db->exec("SELECT COUNT(*) as count FROM users WHERE username = 'admin'");
+        // Check if ANY user exists
+        $result = $db->exec("SELECT COUNT(*) as count FROM users");
 
         if ($result[0]['count'] == 0) {
             $password_hash = password_hash('admin123', PASSWORD_DEFAULT);

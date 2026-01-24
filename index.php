@@ -46,6 +46,7 @@ $f3->route('POST /admin/users', 'AdminController->addUser');
 $f3->route('GET /user/dashboard', 'UserController->dashboard');
 $f3->route('GET /user/profile', 'UserController->profile');
 $f3->route('GET /user/space/@id', 'UserController->space');
+$f3->route('GET /user/review/@id', 'ReviewController->review');
 
 // User API routes
 $f3->route('POST /api/profile/update', 'UserController->updateProfile');
@@ -53,6 +54,7 @@ $f3->route('POST /api/password/update', 'UserController->updatePassword');
 $f3->route('POST /api/account/delete', 'UserController->deleteAccount');
 
 // Space API routes
+$f3->route('GET /api/spaces/recent', 'SpaceController->getRecentlyModified');
 $f3->route('GET /api/spaces', 'SpaceController->listSpaces');
 $f3->route('POST /api/spaces', 'SpaceController->createSpace');
 $f3->route('GET /api/spaces/@id', 'SpaceController->getSpace');
@@ -68,6 +70,7 @@ $f3->route('DELETE /api/spaces/@space_id/files/@file_id', 'SpaceController->dele
 // Tag and sharing API routes
 $f3->route('POST /api/spaces/@id/tags', 'SpaceController->manageTags');
 $f3->route('POST /api/spaces/@id/share', 'SpaceController->shareSpace');
+$f3->route('POST /api/spaces/@id/review-mode', 'SpaceController->toggleReviewMode');
 $f3->route('PUT /api/spaces/@id/readme', 'SpaceController->updateReadme');
 
 // Run app
