@@ -29,9 +29,9 @@ A lightweight, open-source file hosting and sharing platform built with PHP Fat-
 - ✅ Share spaces with other users
 - ✅ Filter and search spaces
 - ✅ Edit space details and README content
-- ✅ **Review Mode**: Read-only public link access toggle **update**
-- ✅ **Recently Modified**: Quick access to most recently updated spaces **update**
-- ✅ **Auto Tag Cleanup**: Automatic removal of unused tags **update**
+- ✅ **Review Mode**: Read-only public link access toggle **(update)**
+- ✅ **Recently Modified**: Quick access to most recently updated spaces **(update)**
+- ✅ **Auto Tag Cleanup**: Automatic removal of unused tags **(update)**
 
 ### UI/UX
 - ✅ Dark mode support
