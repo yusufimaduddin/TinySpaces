@@ -234,6 +234,7 @@ class SpaceController
         $spaceId = $this->f3->get('PARAMS.space_id');
         $fileId = $this->f3->get('PARAMS.file_id');
         $userId = $this->f3->get('SESSION.user_id');
+        $isRaw = $this->f3->get('GET.raw');
 
         // Check access
         $space = $this->spaceModel->checkAccess($spaceId, $userId);
@@ -253,11 +254,61 @@ class SpaceController
             exit;
         }
 
+        // Check if it's a markdown file and we are not requesting raw content
+        $ext = strtolower(pathinfo($file['original_name'], PATHINFO_EXTENSION));
+        if (in_array($ext, ['md', 'markdown']) && !$isRaw) {
+            $this->f3->reroute('/user/editor/' . $spaceId . '/' . $fileId);
+            return;
+        }
+
         // Send file with original mime type
         header('Content-Type: ' . $file['mime_type']);
         header('Content-Length: ' . $file['file_size']);
         readfile($file['file_path']);
         exit;
+    }
+
+    /**
+     * PUT /api/spaces/@space_id/files/@file_id - Update file content
+     */
+    public function updateFile()
+    {
+        AuthController::requireLogin();
+
+        $spaceId = $this->f3->get('PARAMS.space_id');
+        $fileId = $this->f3->get('PARAMS.file_id');
+        $userId = $this->f3->get('SESSION.user_id');
+        $data = json_decode($this->f3->get('BODY'), true);
+
+        // Check access (Owner or Collaborator)
+        // We use checkAccess which returns space info if the user has access.
+        // We then check if they have write permission.
+        $space = $this->spaceModel->checkAccess($spaceId, $userId);
+
+        if (!$space) {
+            $this->jsonResponse(['success' => false, 'message' => 'Access denied'], 403);
+            return;
+        }
+
+        // Check permissions: Owner ALWAYS can. Collaborator: can if NOT in review mode (or if implementation details vary).
+        // For now, let's assume checkAccess grants read/review capability.
+        // We need to verify if the user is owner OR has shared access.
+        // The implementation plan says: "Only users with appropriate permissions (owner or collaborator) will be able to save changes."
+
+        $canEdit = $space['is_owner'] || $space['has_shared_access'];
+
+        if (!$canEdit) {
+            $this->jsonResponse(['success' => false, 'message' => 'You do not have permission to edit this file'], 403);
+            return;
+        }
+
+        if (!isset($data['content'])) {
+            $this->jsonResponse(['success' => false, 'message' => 'Content is required']);
+            return;
+        }
+
+        $result = $this->fileModel->updateFileContent($fileId, $data['content'], $userId, $spaceId);
+        $this->jsonResponse($result);
     }
 
     /**

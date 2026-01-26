@@ -4,6 +4,9 @@
 
 A lightweight, open-source file hosting and sharing platform built with PHP Fat-Free Framework, Alpine.js, and Tailwind CSS.
 
+### 📍 Latest Update (26 Jan 2026)
+- **Markdown Editor**: Added a powerful Markdown editor with real-time preview and synchronized scrolling. Toggleable via the bottom bar.
+
 ## 🎯 Features
 
 ### User Management
@@ -19,6 +22,8 @@ A lightweight, open-source file hosting and sharing platform built with PHP Fat-
 - ✅ Upload files to spaces (max 100MB per file)
 - ✅ Download and view files
 - ✅ Delete files with owner verification
+- ✅ **Markdown Editor**: Full-featured editor with real-time preview **(new)**
+- ✅ **Synchronized Scrolling**: Real-time sync between editor and preview **(new)**
 - ✅ Auto-generated README.md per space
 - ✅ File metadata tracking (size, type, upload date)
 
@@ -29,9 +34,9 @@ A lightweight, open-source file hosting and sharing platform built with PHP Fat-
 - ✅ Share spaces with other users
 - ✅ Filter and search spaces
 - ✅ Edit space details and README content
-- ✅ **Review Mode**: Read-only public link access toggle **(update)**
-- ✅ **Recently Modified**: Quick access to most recently updated spaces **(update)**
-- ✅ **Auto Tag Cleanup**: Automatic removal of unused tags **(update)**
+- ✅ **Review Mode**: Read-only public link access toggle **(new)**
+- ✅ **Recently Modified**: Quick access to most recently updated spaces **(new)**
+- ✅ **Auto Tag Cleanup**: Automatic removal of unused tags **(new)**
 
 ### UI/UX
 - ✅ Dark mode support
@@ -385,7 +390,11 @@ npm run build
 - Write permissions on storage/ and public/uploads/
 - Optional: Node.js for CSS builds
 
-## 🌟 Latest Updates (Jan 2026)
+## 🌟 Latest Updates
+
+### Jan 2026
+- **Markdown Editor**: Implemented a built-in Markdown editor with real-time preview.
+- **Editor Synchronization**: Added real-time synchronized scrolling (50% editor = 50% preview) with a switchable toggle.
 - **Enhanced Review Mode**: Added strict access control and a toggleable public link.
 - **Dashboard Refresh**: Added "Recently Modified" section and improved sorting (oldest created first).
 - **Date Formatting**: Unified date display to `DD MMM YYYY` format.

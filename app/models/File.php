@@ -200,6 +200,47 @@ class File extends DB\SQL\Mapper
     }
 
     /**
+     * Update file content
+     */
+    public function updateFileContent($fileId, $content, $userId, $spaceId)
+    {
+        $db = Database::getInstance();
+
+        // Check if user is owner/has permission (checked in controller, but good to be safe)
+        $space = $db->exec("SELECT owner_id FROM spaces WHERE id = ?", [$spaceId]);
+
+        // This method assumes permission is already checked or user is owner. 
+        // For shared access, we rely on the controller's checkAccess logic.
+        // However, we should ensure the file belongs to the space.
+
+        $this->load(['id = ? AND space_id = ?', $fileId, $spaceId]);
+
+        if ($this->dry()) {
+            return ['success' => false, 'message' => 'File not found'];
+        }
+
+        // Update physical file
+        $physicalPath = __DIR__ . '/../../' . $this->file_path;
+        if (!file_exists($physicalPath)) {
+            return ['success' => false, 'message' => 'Physical file not found'];
+        }
+
+        if (file_put_contents($physicalPath, $content) === false) {
+            return ['success' => false, 'message' => 'Failed to write to file'];
+        }
+
+        // Update file size and timestamp
+        $this->file_size = filesize($physicalPath);
+        $this->updated_at = date('Y-m-d H:i:s');
+        $this->save();
+
+        // Update space updated_at
+        $db->exec("UPDATE spaces SET updated_at = ? WHERE id = ?", [date('Y-m-d H:i:s'), $spaceId]);
+
+        return ['success' => true, 'message' => 'File saved successfully'];
+    }
+
+    /**
      * Get README content
      */
     public function getReadme($spaceId)

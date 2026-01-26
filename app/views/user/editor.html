@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="id" x-data="themeConfig">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ @title }} - TinySpaces</title>
+    <link rel="icon" type="image/png" href="/public/images/favicon.png">
+    <link href="/public/css/style.css" rel="stylesheet">
+    <link href="/public/css/prose.css" rel="stylesheet">
+    <link href="/node_modules/boxicons/css/boxicons.min.css" rel="stylesheet">
+    <script src="/node_modules/alpinejs/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/public/js/app.js"></script>
+</head>
+
+<body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 h-screen flex flex-col overflow-hidden"
+    x-data="editorManager">
+
+    <!-- HEADER -->
+    <header
+        class="border-b border-gray-200 bg-white/80 backdrop-blur-md dark:bg-gray-800/90 dark:border-gray-700 relative z-20 shrink-0">
+        <div class="mx-auto flex w-full items-center justify-between px-4 py-3">
+            <div class="flex items-center gap-4 overflow-hidden">
+                <a href="/user/space/{{ @space_id }}"
+                    class="flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors">
+                    <i class='bx bx-arrow-back text-xl'></i>
+                </a>
+
+                <div class="flex flex-col min-w-0">
+                    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <i class='bx bx-folder'></i>
+                        <span class="truncate max-w-[150px]">{{ @space_name }}</span>
+                    </div>
+                    <h1 class="text-base font-semibold text-gray-900 dark:text-white truncate flex items-center gap-2">
+                        {{ @file_name }}
+                        <span x-show="unsavedChanges" x-transition
+                            class="w-2 h-2 rounded-full bg-yellow-500 inline-block" title="Unsaved changes"></span>
+                    </h1>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Toggle Preview -->
+                <button @click="togglePreview()"
+                    class="hidden sm:flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    :class="showPreview ? 'bg-gray-100 dark:bg-gray-700' : ''">
+                    <i class='bx' :class="showPreview ? 'bx-hide' : 'bx-show'"></i>
+                    <span x-text="showPreview ? 'Hide Preview' : 'Show Preview'"></span>
+                </button>
+
+                <!-- Mobile Toggle -->
+                <button @click="togglePreview()"
+                    class="sm:hidden p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">
+                    <i class='bx' :class="showPreview ? 'bx-hide' : 'bx-show'"></i>
+                </button>
+
+                <!-- Download -->
+                <button @click="downloadFile()"
+                    class="flex items-center gap-2 sm:px-3 sm:py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    title="Download File">
+                    <i class='bx bx-download text-lg'></i>
+                    <span class="hidden sm:flex items-center gap-2">
+                        Download
+                    </span>
+                </button>
+
+                <!-- Save -->
+                <template x-if="canEdit">
+                    <button @click="saveFile()"
+                        class="flex items-center gap-2 rounded-lg bg-black dark:bg-blue-600 px-4 py-2 text-sm text-white hover:bg-gray-800 dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        :disabled="saving">
+                        <i class='bx' :class="saving ? 'bx-loader-alt bx-spin' : 'bx-save'"></i>
+                        <span x-text="saving ? 'Saving...' : 'Save'"></span>
+                    </button>
+                </template>
+                <template x-if="!canEdit">
+                    <span
+                        class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700">
+                        Read Only
+                    </span>
+                </template>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN EDITOR AREA -->
+    <main class="flex-1 flex overflow-hidden relative">
+        <!-- Editor Pane (Textarea) -->
+        <div class="h-full flex-1 relative bg-white dark:bg-gray-900 transition-all duration-300"
+            :class="showPreview ? 'w-1/2 hidden sm:block border-r border-gray-200 dark:border-gray-700' : 'w-full'">
+            <textarea x-model="content" @input="handleInput" x-ref="editor" @scroll="onScroll('editor')"
+                class="w-full h-full resize-none p-4 md:p-6 text-sm md:text-base font-mono bg-transparent border-0 focus:ring-0 outline-none text-gray-800 dark:text-gray-200 leading-relaxed"
+                placeholder="Start writing markdown..." spellcheck="false"></textarea>
+        </div>
+
+        <!-- Preview Pane -->
+        <div class="h-full bg-white dark:bg-gray-800 overflow-y-auto transition-all duration-300"
+            :class="showPreview ? 'w-full sm:w-1/2 block' : 'w-0 hidden'" x-ref="preview" @scroll="onScroll('preview')">
+            <div class="p-8 max-w-none mx-auto h-full">
+                <div class="md-display" x-html="parsedContent"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- FOOTER / STATUS BAR -->
+    <footer
+        class="border-t border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 px-4 py-2 text-xs text-gray-600 dark:text-gray-400 flex items-center justify-end z-20 shrink-0">
+        <label
+            class="flex items-center gap-2 cursor-pointer select-none hover:text-gray-900 dark:hover:text-gray-200 transition-colors">
+            <input type="checkbox" x-model="syncScroll"
+                class="rounded border-gray-300 text-black focus:ring-black dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600">
+            <span>Sync Scroll</span>
+        </label>
+    </footer>
+
+    <!-- TOAST COMPONENT -->
+    <div x-data>
+        <div x-show="$store.toast.visible" style="display: none;" x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
+            x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0"
+            x-transition:leave-end="opacity-0 translate-y-2"
+            class="fixed top-20 right-6 flex items-center gap-2 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 z-50 px-4 py-3 text-sm shadow-lg">
+            <i :class="{
+                'bx-check-circle text-green-600 dark:text-green-400': $store.toast.type === 'success',
+                'bx-x-circle text-red-600 dark:text-red-400': $store.toast.type === 'error',
+                'bx-info-circle text-blue-600 dark:text-blue-400': $store.toast.type === 'info'
+            }" class="bx text-lg"></i>
+            <span x-text="$store.toast.message" class="dark:text-gray-300"></span>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            // Theme Config (Shared)
+            Alpine.data('themeConfig', () => ({
+                isDark: localStorage.getItem('theme') === 'dark',
+                toggleDarkMode() {
+                    this.isDark = !this.isDark;
+                    localStorage.setItem('theme', this.isDark ? 'dark' : 'light');
+                    this.updateTheme();
+                },
+                updateTheme() {
+                    if (this.isDark) {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                    }
+                },
+                init() {
+                    if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                        this.isDark = true;
+                    }
+                    this.updateTheme();
+                }
+            }));
+
+            // Editor Manager
+            Alpine.data('editorManager', () => ({
+                spaceId: '{{ @space_id }}',
+                fileId: '{{ @file_id }}',
+                fileName: '{{ @file_name }}',
+                canEdit: {{ @can_edit ? 'true' : 'false' }},
+
+            content: '',
+            parsedContent: '',
+            unsavedChanges: false,
+            saving: false,
+            showPreview: true, // Default open on desktop
+            syncScroll: true,
+            isScrolling: false,
+
+            init() {
+            this.loadFile();
+
+            // Handle responsive preview default
+            if(window.innerWidth < 640) {
+            this.showPreview = false;
+        }
+
+        // Ctrl+S to save
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                this.saveFile();
+            }
+        });
+                },
+
+        handleInput() {
+            this.parsedContent = marked.parse(this.content);
+            this.unsavedChanges = true;
+        },
+
+                async loadFile() {
+            try {
+                const response = await fetch(`/api/spaces/${this.spaceId}/files/${this.fileId}/view?raw=1`);
+                if (!response.ok) throw new Error('Failed to load file');
+
+                const text = await response.text();
+                this.content = text;
+                this.parsedContent = marked.parse(text);
+                this.unsavedChanges = false;
+
+            } catch (error) {
+                showAlpineToast('Error loading file: ' + error.message, 'error');
+            }
+        },
+
+                async saveFile() {
+            if (!this.canEdit) return;
+
+            this.saving = true;
+            try {
+                const response = await fetch(`/api/spaces/${this.spaceId}/files/${this.fileId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: this.content
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlpineToast('File saved successfully!', 'success');
+                    this.unsavedChanges = false;
+                } else {
+                    showAlpineToast(result.message || 'Failed to save file', 'error');
+                }
+            } catch (error) {
+                showAlpineToast('Error saving file: ' + error.message, 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+
+                async downloadFile() {
+            try {
+                const response = await fetch(`/api/spaces/${this.spaceId}/files/${this.fileId}/download`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = this.fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    showAlpineToast('Failed to download file', 'error');
+                }
+            } catch (error) {
+                showAlpineToast('Error downloading file: ' + error.message, 'error');
+            }
+        },
+
+        togglePreview() {
+            this.showPreview = !this.showPreview;
+        },
+
+        onScroll(source) {
+            if (!this.syncScroll) return;
+            // Prevent recursive triggering
+            if (this.isScrolling) return;
+
+            this.isScrolling = true;
+
+            const editor = this.$refs.editor;
+            const preview = this.$refs.preview;
+
+            if (source === 'editor') {
+                // Calculate percentage from editor
+                const percentage = editor.scrollTop / (editor.scrollHeight - editor.clientHeight);
+                if (!isNaN(percentage)) {
+                    preview.scrollTop = percentage * (preview.scrollHeight - preview.clientHeight);
+                }
+            } else {
+                // Calculate percentage from preview
+                const percentage = preview.scrollTop / (preview.scrollHeight - preview.clientHeight);
+                if (!isNaN(percentage)) {
+                    editor.scrollTop = percentage * (editor.scrollHeight - editor.clientHeight);
+                }
+            }
+
+            // Small timeout to unlock
+            setTimeout(() => {
+                this.isScrolling = false;
+            }, 10);
+        }
+            }));
+        });
+    </script>
+</body>
+
+</html>

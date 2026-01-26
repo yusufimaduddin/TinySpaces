@@ -46,6 +46,7 @@ $f3->route('POST /admin/users', 'AdminController->addUser');
 $f3->route('GET /user/dashboard', 'UserController->dashboard');
 $f3->route('GET /user/profile', 'UserController->profile');
 $f3->route('GET /user/space/@id', 'UserController->space');
+$f3->route('GET /user/editor/@space_id/@file_id', 'UserController->editor');
 $f3->route('GET /user/review/@id', 'ReviewController->review');
 
 // User API routes
@@ -65,6 +66,7 @@ $f3->route('DELETE /api/spaces/@id', 'SpaceController->deleteSpace');
 $f3->route('POST /api/spaces/@id/upload', 'SpaceController->uploadFile');
 $f3->route('GET /api/spaces/@space_id/files/@file_id/download', 'SpaceController->downloadFile');
 $f3->route('GET /api/spaces/@space_id/files/@file_id/view', 'SpaceController->viewFile');
+$f3->route('PUT /api/spaces/@space_id/files/@file_id', 'SpaceController->updateFile');
 $f3->route('DELETE /api/spaces/@space_id/files/@file_id', 'SpaceController->deleteFile');
 
 // Tag and sharing API routes

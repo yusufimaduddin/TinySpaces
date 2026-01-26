@@ -41,6 +41,13 @@ class UserController
             return;
         }
 
+        // If user is not owner and not a collaborator (shared user), but has access (via review mode),
+        // redirect them to the review page instead of the management page.
+        if (!$space['is_owner'] && !$space['has_shared_access']) {
+            $this->f3->reroute('/user/review/' . $spaceId);
+            return;
+        }
+
         $this->f3->set('title', $space['name']);
         $this->f3->set('description', $space['description'] ?: 'A shared space on TinySpaces');
         $this->f3->set('author', $space['owner_name']);
@@ -50,6 +57,41 @@ class UserController
         $this->f3->set('space_id', $spaceId);
 
         echo \Template::instance()->render('user/space.html');
+    }
+
+    public function editor()
+    {
+        AuthController::requireLogin();
+
+        $spaceId = $this->f3->get('PARAMS.space_id');
+        $fileId = $this->f3->get('PARAMS.file_id');
+        $userId = $this->f3->get('SESSION.user_id');
+
+        // Check access
+        $space = $this->spaceModel->checkAccess($spaceId, $userId);
+        if (!$space) {
+            $this->f3->error(404, 'Space not found or access denied');
+            return;
+        }
+
+        // Get file info
+        $file = (new File())->getFile($fileId);
+        if (!$file) {
+            $this->f3->error(404, 'File not found');
+            return;
+        }
+
+        $canEdit = $space['is_owner'] || $space['has_shared_access'];
+
+        $this->f3->set('title', 'Editor - ' . $file['original_name']);
+        $this->f3->set('space_id', $spaceId);
+        $this->f3->set('space_name', $space['name']);
+        $this->f3->set('file_id', $fileId);
+        $this->f3->set('file_name', $file['original_name']);
+        $this->f3->set('can_edit', $canEdit);
+        $this->f3->set('username', $this->f3->get('SESSION.username'));
+
+        echo \Template::instance()->render('user/editor.html');
     }
 
     public function profile()
