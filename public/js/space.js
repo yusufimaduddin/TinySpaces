@@ -125,6 +125,9 @@ document.addEventListener('alpine:init', () => {
 
             showAlpineToast(`Uploading ${this.selectedFiles.length} file(s)...`, 'info');
 
+            let successCount = 0;
+            let lastError = '';
+
             for (let file of this.selectedFiles) {
                 const formData = new FormData();
                 formData.append('file', file);
@@ -138,14 +141,23 @@ document.addEventListener('alpine:init', () => {
                     const result = await response.json();
 
                     if (!result.success) {
-                        showAlpineToast(result.message || `Failed to upload ${file.name}`, 'error');
+                        lastError = result.message || `Failed to upload ${file.name}`;
+                    } else {
+                        successCount++;
                     }
                 } catch (error) {
-                    showAlpineToast(`Error uploading ${file.name}: ${error.message}`, 'error');
+                    lastError = `Error uploading ${file.name}: ${error.message}`;
                 }
             }
 
-            showAlpineToast('Files uploaded successfully!', 'success');
+            if (successCount === this.selectedFiles.length) {
+                showAlpineToast('Files uploaded successfully!', 'success');
+            } else if (successCount > 0) {
+                showAlpineToast(`${successCount} file(s) uploaded successfully. ${lastError}`, 'warning');
+            } else {
+                showAlpineToast(lastError || 'Failed to upload files', 'error');
+            }
+
             this.clearSelectedFiles();
             await this.loadSpaceData();
         },

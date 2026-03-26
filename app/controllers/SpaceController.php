@@ -168,11 +168,10 @@ class SpaceController
         $spaceId = $this->f3->get('PARAMS.id');
         $userId = $this->f3->get('SESSION.user_id');
 
-        // Check access (must be owner)
-        $db = Database::getInstance();
-        $space = $db->exec("SELECT owner_id FROM spaces WHERE id = ?", [$spaceId]);
+        // Check access
+        $space = $this->spaceModel->checkAccess($spaceId, $userId);
 
-        if (empty($space) || $space[0]['owner_id'] != $userId) {
+        if (!$space || !($space['is_owner'] || $space['has_shared_access'])) {
             $this->jsonResponse(['success' => false, 'message' => 'Access denied'], 403);
             return;
         }

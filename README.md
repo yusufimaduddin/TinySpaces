@@ -4,8 +4,31 @@
 
 A lightweight, open-source file hosting and sharing platform built with PHP Fat-Free Framework, Alpine.js, and Tailwind CSS.
 
-### 📍 Latest Update (26 Jan 2026)
-- **Markdown Editor**: Added a powerful Markdown editor with real-time preview and synchronized scrolling. Toggleable via the bottom bar.
+---
+
+**📢 Important Notice**
+
+If anyone has already built a project like this with newer, faster, and more efficient technology that can be cross-platform (built with PHP, JS, etc.), please feel free to share. I'm very much looking forward to that development.
+
+---
+
+**📅 Latest Update (26 March 2026)**
+
+**Bug Fixes:**
+- Fixed upload and delete file issues for restricted users in spaces with limited access (role/permission-based restrictions)
+- Resolved permission validation where users with restricted status were incorrectly able to upload or delete files
+- Enhanced access control checks to properly enforce space restrictions
+
+**Update Details:**
+- Improved authorization logic for file operations in shared spaces
+- Fixed edge cases where users with revoked access could still modify files
+- Added additional validation layers for file upload and delete endpoints
+
+---
+
+**TinySpaces** continues to be maintained with these improvements. For any questions or contributions, please open an issue on GitHub.
+
+---
 
 ## 🎯 Features
 

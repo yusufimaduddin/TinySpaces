@@ -41,13 +41,22 @@ class File extends DB\SQL\Mapper
 
         // Validate space exists
         $db = Database::getInstance();
-        $spaceCheck = $db->exec("SELECT owner_id FROM spaces WHERE id = ?", [$spaceId]);
+        $spaceCheck = $db->exec(
+            "SELECT s.owner_id, 
+                    CASE WHEN s.owner_id = ? THEN 1 ELSE 0 END as is_owner,
+                    EXISTS(SELECT 1 FROM space_access WHERE space_id = s.id AND user_id = ?) as has_shared_access
+             FROM spaces s WHERE s.id = ?",
+            [$userId, $userId, $spaceId]
+        );
+
         if (empty($spaceCheck)) {
             return ['success' => false, 'message' => 'Space not found'];
         }
 
-        // Check if user is owner
-        if ($spaceCheck[0]['owner_id'] != $userId) {
+        $space = $spaceCheck[0];
+
+        // Check if user has permission (owner or shared access)
+        if (!$space['is_owner'] && (!$space['has_shared_access'])) {
             return ['success' => false, 'message' => 'You do not have permission to upload to this space'];
         }
 
@@ -119,11 +128,23 @@ class File extends DB\SQL\Mapper
             return ['success' => false, 'message' => 'Cannot delete README file'];
         }
 
-        // Check if user has permission (owner of space)
+        // Check if user has permission (owner or shared access)
         $db = Database::getInstance();
-        $space = $db->exec("SELECT owner_id FROM spaces WHERE id = ?", [$spaceId]);
+        $spaceCheck = $db->exec(
+            "SELECT s.owner_id, 
+                    CASE WHEN s.owner_id = ? THEN 1 ELSE 0 END as is_owner,
+                    EXISTS(SELECT 1 FROM space_access WHERE space_id = s.id AND user_id = ?) as has_shared_access
+             FROM spaces s WHERE s.id = ?",
+            [$userId, $userId, $spaceId]
+        );
 
-        if (empty($space) || $space[0]['owner_id'] != $userId) {
+        if (empty($spaceCheck)) {
+            return ['success' => false, 'message' => 'Space not found'];
+        }
+
+        $space = $spaceCheck[0];
+
+        if (!$space['is_owner'] && !$space['has_shared_access']) {
             return ['success' => false, 'message' => 'You do not have permission to delete this file'];
         }
 
