@@ -1,6 +1,12 @@
 <?php
+// Debug is off by default. Enable it only for local development:
+//   PowerShell: $env:APP_DEBUG=1; php -S localhost:8000 router.php
+$appDebug = getenv('APP_DEBUG');
+$appDebug = ($appDebug === false || $appDebug === '') ? 0 : (int) $appDebug;
+
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', $appDebug > 0 ? '1' : '0');
+ini_set('display_startup_errors', $appDebug > 0 ? '1' : '0');
 
 // Load dependencies
 require 'vendor/autoload.php';
@@ -11,16 +17,42 @@ $f3 = Base::instance();
 // Konfigurasi
 $f3->set('AUTOLOAD', 'app/controllers/;app/models/');
 $f3->set('UI', 'app/views/');
-$f3->set('DEBUG', 3);
+$f3->set('DEBUG', $appDebug);
 $f3->set('ONERROR', function ($f3) {
     // Clear any output that has already been generated
     while (ob_get_level())
         ob_end_clean();
+
+    // API/AJAX requests must receive JSON, never an HTML error page
+    if (class_exists('AuthController') && AuthController::isApiRequest()) {
+        $status = (int) ($f3->get('ERROR.code') ?: 500);
+        http_response_code($status);
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false,
+            'message' => $f3->get('DEBUG') > 0
+                ? ($f3->get('ERROR.text') ?: 'Something went wrong.')
+                : 'Something went wrong. Please try again later.',
+            'code' => $status
+        ]);
+        return;
+    }
+
     // Render the error page
     echo Template::instance()->render('error.html');
 });
 
-// Start session
+// Secure session cookie settings (must be set before session_start)
+$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
+    || (($_SERVER['SERVER_PORT'] ?? '') == 443);
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'secure' => $isHttps,
+    'httponly' => true,
+    'samesite' => 'Lax'
+]);
 session_start();
 
 // Routes
@@ -68,6 +100,10 @@ $f3->route('GET /api/spaces/@space_id/files/@file_id/download', 'SpaceController
 $f3->route('GET /api/spaces/@space_id/files/@file_id/view', 'SpaceController->viewFile');
 $f3->route('PUT /api/spaces/@space_id/files/@file_id', 'SpaceController->updateFile');
 $f3->route('DELETE /api/spaces/@space_id/files/@file_id', 'SpaceController->deleteFile');
+$f3->route('POST /api/spaces/@id/files/merge', 'SpaceController->mergeFileGroups');
+$f3->route('POST /api/spaces/@id/groups/release', 'SpaceController->releaseGroup');
+$f3->route('DELETE /api/spaces/@id/groups', 'SpaceController->deleteGroup');
+$f3->route('GET /api/spaces/@id/groups/download', 'SpaceController->downloadGroup');
 
 // Tag and sharing API routes
 $f3->route('POST /api/spaces/@id/tags', 'SpaceController->manageTags');

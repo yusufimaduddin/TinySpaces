@@ -178,12 +178,44 @@ class SpaceController
 
         // Check if file was uploaded
         if (empty($_FILES['file'])) {
-            $this->jsonResponse(['success' => false, 'message' => 'No file uploaded']);
+            $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+            $postMax = $this->iniBytes(ini_get('post_max_size'));
+
+            $message = ($postMax > 0 && $contentLength > $postMax)
+                ? 'File is too large. Server limit is ' . ini_get('post_max_size') . '.'
+                : 'No file uploaded';
+
+            $this->jsonResponse(['success' => false, 'message' => $message]);
             return;
         }
 
         $result = $this->fileModel->uploadFile($spaceId, $_FILES['file'], $userId);
         $this->jsonResponse($result);
+    }
+
+    /**
+     * Convert a php.ini size value (e.g. "8M") to bytes.
+     */
+    private function iniBytes($value)
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return 0;
+        }
+
+        $unit = strtolower(substr($value, -1));
+        $number = (int) $value;
+
+        switch ($unit) {
+            case 'g':
+                return $number * 1024 * 1024 * 1024;
+            case 'm':
+                return $number * 1024 * 1024;
+            case 'k':
+                return $number * 1024;
+            default:
+                return $number;
+        }
     }
 
     /**
@@ -209,7 +241,7 @@ class SpaceController
         // Get file
         $file = $this->fileModel->getFile($fileId);
 
-        if (!$file || !file_exists($file['file_path'])) {
+        if (!$file || $file['space_id'] !== $spaceId || !file_exists($file['file_path'])) {
             header('HTTP/1.1 404 Not Found');
             echo 'File not found';
             exit;
@@ -217,8 +249,9 @@ class SpaceController
 
         // Send file
         header('Content-Type: application/octet-stream');
-        header('Content-Disposition: attachment; filename="' . $file['original_name'] . '"');
-        header('Content-Length: ' . $file['file_size']);
+        header($this->buildContentDisposition($file['original_name'], false));
+        header('Content-Length: ' . filesize($file['file_path']));
+        header('X-Content-Type-Options: nosniff');
         readfile($file['file_path']);
         exit;
     }
@@ -247,22 +280,41 @@ class SpaceController
         // Get file
         $file = $this->fileModel->getFile($fileId);
 
-        if (!$file || !file_exists($file['file_path'])) {
+        if (!$file || $file['space_id'] !== $spaceId || !file_exists($file['file_path'])) {
             header('HTTP/1.1 404 Not Found');
             echo 'File not found';
             exit;
         }
 
-        // Check if it's a markdown file and we are not requesting raw content
-        $ext = strtolower(pathinfo($file['original_name'], PATHINFO_EXTENSION));
-        if (in_array($ext, ['md', 'markdown']) && !$isRaw) {
+        $isText = File::isTextFile($file['original_name'], $file['mime_type']);
+
+        // Text-based files open in the editor; raw requests are served as-is
+        if ($isText && !$isRaw) {
             $this->f3->reroute('/user/editor/' . $spaceId . '/' . $fileId);
             return;
         }
 
-        // Send file with original mime type
-        header('Content-Type: ' . $file['mime_type']);
-        header('Content-Length: ' . $file['file_size']);
+        $fileSize = filesize($file['file_path']);
+
+        // Raw text must be sent as plain text so the editor can load it safely.
+        // Without this, editing an HTML/XML file would be mistaken for a session error.
+        if ($isText && $isRaw) {
+            header('Content-Type: text/plain; charset=UTF-8');
+            header($this->buildContentDisposition($file['original_name'], true));
+            header('Content-Length: ' . $fileSize);
+            header('X-Content-Type-Options: nosniff');
+            readfile($file['file_path']);
+            exit;
+        }
+
+        // Only previewable types are opened inline. Anything the browser cannot
+        // display is sent as an attachment, so it downloads with its real name.
+        $inline = File::isInlineViewable($file['original_name'], $file['mime_type']);
+
+        header('Content-Type: ' . ($file['mime_type'] ?: 'application/octet-stream'));
+        header($this->buildContentDisposition($file['original_name'], $inline));
+        header('Content-Length: ' . $fileSize);
+        header('X-Content-Type-Options: nosniff');
         readfile($file['file_path']);
         exit;
     }
@@ -323,6 +375,196 @@ class SpaceController
 
         $result = $this->fileModel->deleteFile($fileId, $userId, $spaceId);
         $this->jsonResponse($result);
+    }
+
+    /**
+     * POST /api/spaces/@id/files/merge - Merge files into a group
+     */
+    public function mergeFileGroups()
+    {
+        AuthController::requireLogin();
+
+        $spaceId = $this->f3->get('PARAMS.id');
+        $userId = $this->f3->get('SESSION.user_id');
+        $data = json_decode($this->f3->get('BODY'), true);
+
+        if (!is_array($data)) {
+            $this->jsonResponse(['success' => false, 'message' => 'Invalid request body'], 400);
+            return;
+        }
+
+        $result = $this->fileModel->mergeFilesToGroup(
+            $spaceId,
+            $data['file_ids'] ?? [],
+            $data['group_name'] ?? null,
+            $userId
+        );
+
+        $status = $result['success'] ? 200 : ($result['status'] ?? 400);
+        $this->jsonResponse($result, $status);
+    }
+
+    /**
+     * POST /api/spaces/@id/groups/release - Remove all files from a group
+     */
+    public function releaseGroup()
+    {
+        AuthController::requireLogin();
+
+        $spaceId = $this->f3->get('PARAMS.id');
+        $userId = $this->f3->get('SESSION.user_id');
+        $data = json_decode($this->f3->get('BODY'), true);
+
+        if (!is_array($data)) {
+            $this->jsonResponse(['success' => false, 'message' => 'Invalid request body'], 400);
+            return;
+        }
+
+        $result = $this->fileModel->releaseGroup($spaceId, $data['group_name'] ?? '', $userId);
+        $status = $result['success'] ? 200 : ($result['status'] ?? 400);
+        $this->jsonResponse($result, $status);
+    }
+
+    /**
+     * DELETE /api/spaces/@id/groups - Delete all files in a group
+     */
+    public function deleteGroup()
+    {
+        AuthController::requireLogin();
+
+        $spaceId = $this->f3->get('PARAMS.id');
+        $userId = $this->f3->get('SESSION.user_id');
+        $data = json_decode($this->f3->get('BODY'), true);
+
+        if (!is_array($data)) {
+            $this->jsonResponse(['success' => false, 'message' => 'Invalid request body'], 400);
+            return;
+        }
+
+        $result = $this->fileModel->deleteGroup($spaceId, $data['group_name'] ?? '', $userId);
+        $status = $result['success'] ? 200 : ($result['status'] ?? 400);
+        $this->jsonResponse($result, $status);
+    }
+
+    /**
+     * GET /api/spaces/@id/groups/download?name=... - Download a group as a ZIP file
+     */
+    public function downloadGroup()
+    {
+        AuthController::requireLogin();
+
+        $spaceId = $this->f3->get('PARAMS.id');
+        $userId = $this->f3->get('SESSION.user_id');
+        $rawGroupName = $this->f3->get('GET.name');
+        $groupName = is_string($rawGroupName) ? trim($rawGroupName) : '';
+
+        $space = $this->spaceModel->checkAccess($spaceId, $userId);
+
+        if (!$space) {
+            http_response_code(403);
+            echo 'Access denied';
+            exit;
+        }
+
+        if ($groupName === '') {
+            http_response_code(400);
+            echo 'Group name is required';
+            exit;
+        }
+
+        $files = $this->fileModel->getGroupFiles($spaceId, $groupName);
+
+        if (empty($files)) {
+            http_response_code(404);
+            echo 'Group not found';
+            exit;
+        }
+
+        if (!class_exists('ZipArchive')) {
+            http_response_code(500);
+            echo 'ZIP support is not available on this server';
+            exit;
+        }
+
+        $tmpDir = __DIR__ . '/../../tmp';
+        if (!is_dir($tmpDir) && !mkdir($tmpDir, 0755, true)) {
+            http_response_code(500);
+            echo 'Failed to prepare download';
+            exit;
+        }
+
+        $zipPath = tempnam($tmpDir, 'group_');
+        if ($zipPath === false) {
+            http_response_code(500);
+            echo 'Failed to prepare download';
+            exit;
+        }
+
+        $zip = new ZipArchive();
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            @unlink($zipPath);
+            http_response_code(500);
+            echo 'Failed to create archive';
+            exit;
+        }
+
+        $usedNames = [];
+        $added = 0;
+
+        foreach ($files as $file) {
+            $physicalPath = __DIR__ . '/../../' . $file['file_path'];
+
+            if (!is_file($physicalPath)) {
+                continue;
+            }
+
+            $entryName = trim(str_replace(['\\', '/'], '_', $file['original_name']));
+            if ($entryName === '') {
+                $entryName = 'file';
+            }
+
+            $info = pathinfo($entryName);
+            $baseName = $info['filename'] ?? 'file';
+            $extension = isset($info['extension']) ? '.' . $info['extension'] : '';
+            $candidate = $entryName;
+            $counter = 1;
+
+            while (isset($usedNames[strtolower($candidate)])) {
+                $candidate = $baseName . ' (' . $counter . ')' . $extension;
+                $counter++;
+            }
+
+            $usedNames[strtolower($candidate)] = true;
+
+            if ($zip->addFile($physicalPath, $candidate)) {
+                $added++;
+            }
+        }
+
+        if ($added === 0) {
+            $zip->close();
+            @unlink($zipPath);
+            http_response_code(404);
+            echo 'No readable files in this group';
+            exit;
+        }
+
+        $zip->close();
+
+        $safeName = preg_replace('/[^\w\-\. ]+/u', '-', $groupName);
+        $safeName = trim(preg_replace('/\s+/', ' ', $safeName));
+
+        if ($safeName === '') {
+            $safeName = 'group';
+        }
+
+        header('Content-Type: application/zip');
+        header($this->buildContentDisposition($safeName . '.zip', false));
+        header('Content-Length: ' . filesize($zipPath));
+        header('X-Content-Type-Options: nosniff');
+        readfile($zipPath);
+        @unlink($zipPath);
+        exit;
     }
 
     /**
@@ -402,6 +644,13 @@ class SpaceController
         $userId = $this->f3->get('SESSION.user_id');
         $data = json_decode($this->f3->get('BODY'), true);
 
+        $space = $this->spaceModel->checkAccess($spaceId, $userId);
+
+        if (!$space || !($space['is_owner'] || $space['has_shared_access'])) {
+            $this->jsonResponse(['success' => false, 'message' => 'You do not have permission to edit README'], 403);
+            return;
+        }
+
         if (!isset($data['content'])) {
             $this->jsonResponse(['success' => false, 'message' => 'Content is required']);
             return;
@@ -409,6 +658,28 @@ class SpaceController
 
         $result = $this->fileModel->updateReadme($spaceId, $data['content'], $userId);
         $this->jsonResponse($result);
+    }
+
+    /**
+     * Build a Content-Disposition header that preserves the original filename
+     */
+    private function buildContentDisposition($filename, $inline = false)
+    {
+        $filename = str_replace(['\\', '/', '"', "\r", "\n"], '_', (string) $filename);
+
+        if ($filename === '') {
+            $filename = $inline ? 'view' : 'download';
+        }
+
+        $fallback = preg_replace('/[^\x20-\x7E]/', '_', $filename);
+
+        if ($fallback === '' || $fallback === null) {
+            $fallback = $inline ? 'view' : 'download';
+        }
+
+        return 'Content-Disposition: ' . ($inline ? 'inline' : 'attachment')
+            . '; filename="' . $fallback . '"'
+            . "; filename*=UTF-8''" . rawurlencode($filename);
     }
 
     /**

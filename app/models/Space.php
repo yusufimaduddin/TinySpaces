@@ -59,9 +59,11 @@ class Space extends DB\SQL\Mapper
             "SELECT s.*, 
                    (SELECT COUNT(*) FROM files f WHERE f.space_id = s.id) as file_count
             FROM spaces s
-            WHERE s.owner_id = ? OR EXISTS(
-                SELECT 1 FROM space_access sa 
-                WHERE sa.space_id = s.id AND sa.user_id = ?
+            WHERE s.owner_id = ? OR (
+                s.status = 'published' AND EXISTS(
+                    SELECT 1 FROM space_access sa
+                    WHERE sa.space_id = s.id AND sa.user_id = ?
+                )
             )
             ORDER BY s.updated_at DESC
             LIMIT ?",
@@ -148,8 +150,8 @@ class Space extends DB\SQL\Mapper
                 mkdir($uploadDir, 0755, true);
             }
 
-            // Create README.md
-            $readmePath = $uploadDir . '/README.md';
+            // Create README.md (stored with a neutral extension like uploads)
+            $readmePath = $uploadDir . '/README.dat';
             $readmeContent = "# {$data['name']}\n\n{$data['description']}\n\n## Files\n\nThis space contains files related to {$data['name']}.";
             file_put_contents($readmePath, $readmeContent);
 
@@ -161,7 +163,7 @@ class Space extends DB\SQL\Mapper
                     ':id' => Database::generateId(),
                     ':space_id' => $spaceId,
                     ':orig_name' => 'README.md',
-                    ':path' => '/public/uploads/spaces/' . $spaceId . '/README.md',
+                    ':path' => '/public/uploads/spaces/' . $spaceId . '/README.dat',
                     ':size' => (int) filesize($readmePath),
                     ':mime' => 'text/markdown',
                     ':uploader' => $userId

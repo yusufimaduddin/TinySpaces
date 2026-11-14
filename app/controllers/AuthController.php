@@ -19,13 +19,9 @@ class AuthController
         }
 
         // Check remember me cookie
-        if (isset($_COOKIE['remember_token'])) {
-            $user = $this->userModel->findByToken($_COOKIE['remember_token']);
-            if ($user) {
-                $this->setSession($user);
-                $this->redirectBasedOnRole();
-                return;
-            }
+        if (self::attemptRememberLogin()) {
+            $this->redirectBasedOnRole();
+            return;
         }
 
         // Flash message handling
@@ -55,22 +51,23 @@ class AuthController
             return;
         }
 
+        // Prevent session fixation
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+
         // Set session
-        $this->setSession($user);
+        self::setSession($user);
 
         // Handle remember me
         if ($remember) {
-            $token = User::generateRememberToken();
-            $user->updateRememberToken($token);
-
-            // Set cookie for 30 days
-            setcookie('remember_token', $token, [
-                'expires' => time() + (30 * 24 * 60 * 60),
-                'path' => '/',
-                'secure' => false, // set true for HTTPS
-                'httponly' => true,
-                'samesite' => 'Lax'
-            ]);
+            $token = User::createRememberToken($user->id);
+            self::setRememberCookie($token);
+        } elseif (isset($_COOKIE['remember_token'])) {
+            // User explicitly chose not to be remembered: revoke this device token
+            User::deleteRememberToken($_COOKIE['remember_token']);
+            $this->userModel->clearRememberToken();
+            self::clearRememberCookie();
         }
 
         $this->redirectBasedOnRole();
@@ -78,17 +75,10 @@ class AuthController
 
     public function logout()
     {
-        // Clear remember token from database
+        // Revoke only this device's remember token
         if (isset($_COOKIE['remember_token'])) {
-            $user = $this->userModel->findByToken($_COOKIE['remember_token']);
-            if ($user) {
-                $user->clearRememberToken();
-            }
-            // Clear cookie
-            setcookie('remember_token', '', [
-                'expires' => time() - 3600,
-                'path' => '/'
-            ]);
+            User::deleteRememberToken($_COOKIE['remember_token']);
+            self::clearRememberCookie();
         }
 
         // Destroy session
@@ -98,18 +88,124 @@ class AuthController
         $this->f3->reroute('/login');
     }
 
-    private function setSession($user)
+    private static function setSession($user)
     {
-        $this->f3->set('SESSION.user_id', $user->id);
-        $this->f3->set('SESSION.username', $user->username);
-        $this->f3->set('SESSION.email', $user->email);
-        $this->f3->set('SESSION.role', $user->role);
-        $this->f3->set('SESSION.logged_in', true);
+        $f3 = Base::instance();
+        $f3->set('SESSION.user_id', $user->id);
+        $f3->set('SESSION.username', $user->username);
+        $f3->set('SESSION.email', $user->email);
+        $f3->set('SESSION.role', $user->role);
+        $f3->set('SESSION.logged_in', true);
     }
 
     private function isLoggedIn()
     {
         return $this->f3->get('SESSION.logged_in') === true;
+    }
+
+    /**
+     * Validate the remember-me cookie and restore the session silently.
+     */
+    private static function attemptRememberLogin()
+    {
+        $f3 = Base::instance();
+
+        if ($f3->get('SESSION.logged_in')) {
+            return true;
+        }
+
+        if (empty($_COOKIE['remember_token'])) {
+            return false;
+        }
+
+        $rawToken = $_COOKIE['remember_token'];
+        $userModel = new User();
+        $user = $userModel->findByRememberToken($rawToken);
+        $isLegacy = false;
+
+        // Backward compatibility with the old single-token implementation
+        if (!$user) {
+            $user = $userModel->findByToken($rawToken);
+            $isLegacy = $user !== null;
+        }
+
+        if (!$user) {
+            self::clearRememberCookie();
+            return false;
+        }
+
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+        session_regenerate_id(true);
+
+        self::setSession($user);
+
+        if ($isLegacy) {
+            $userModel->clearRememberToken();
+            $newToken = User::createRememberToken($user->id);
+            self::setRememberCookie($newToken);
+        } else {
+            User::touchRememberToken($rawToken);
+            self::setRememberCookie($rawToken);
+        }
+
+        return true;
+    }
+
+    /**
+     * Cookie options shared by set/clear operations.
+     */
+    private static function rememberCookieOptions($expires)
+    {
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
+            || (($_SERVER['SERVER_PORT'] ?? '') == 443);
+
+        return [
+            'expires' => $expires,
+            'path' => '/',
+            'secure' => $isHttps,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ];
+    }
+
+    private static function setRememberCookie($token)
+    {
+        setcookie('remember_token', $token, self::rememberCookieOptions(time() + (30 * 24 * 60 * 60)));
+    }
+
+    public static function clearRememberCookie()
+    {
+        setcookie('remember_token', '', self::rememberCookieOptions(time() - 3600));
+    }
+
+    /**
+     * Determine whether the current request expects a JSON/API response.
+     */
+    public static function isApiRequest()
+    {
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+        if (strpos($path, '/api/') !== false) {
+            return true;
+        }
+
+        if (strcasecmp($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '', 'XMLHttpRequest') === 0) {
+            return true;
+        }
+
+        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+        if (stripos($accept, 'application/json') !== false) {
+            return true;
+        }
+
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+        if (stripos($contentType, 'application/json') !== false) {
+            return true;
+        }
+
+        return false;
     }
 
     private function redirectBasedOnRole()
@@ -128,9 +224,27 @@ class AuthController
     {
         $f3 = Base::instance();
 
-        if (!$f3->get('SESSION.logged_in')) {
-            $f3->reroute('/login');
+        if ($f3->get('SESSION.logged_in')) {
+            return;
         }
+
+        // Try to restore the session from the remember-me cookie
+        if (self::attemptRememberLogin()) {
+            return;
+        }
+
+        if (self::isApiRequest()) {
+            http_response_code(401);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false,
+                'message' => 'Your session has expired. Please sign in again.',
+                'code' => 'SESSION_EXPIRED'
+            ]);
+            exit;
+        }
+
+        $f3->reroute('/login');
     }
 
     // Middleware untuk check role

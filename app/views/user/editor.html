@@ -11,64 +11,67 @@
     <link href="/node_modules/boxicons/css/boxicons.min.css" rel="stylesheet">
     <script src="/node_modules/alpinejs/dist/cdn.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
     <script src="/public/js/app.js"></script>
 </head>
 
 <body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 h-screen flex flex-col overflow-hidden"
-    x-data="editorManager">
+    x-data="editorManager" data-space-id="{{ @space_id }}" data-file-id="{{ @file_id }}"
+    data-file-name="{{ @file_name }}" data-file-extension="{{ @file_extension }}"
+    data-is-markdown="{{ @is_markdown ? '1' : '0' }}" data-can-edit="{{ @can_edit ? '1' : '0' }}">
 
     <!-- HEADER -->
     <header
         class="border-b border-gray-200 bg-white/80 backdrop-blur-md dark:bg-gray-800/90 dark:border-gray-700 relative z-20 shrink-0">
-        <div class="mx-auto flex w-full items-center justify-between px-4 py-3">
-            <div class="flex items-center gap-4 overflow-hidden">
+        <div class="mx-auto flex w-full items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3">
+            <div class="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
                 <a href="/user/space/{{ @space_id }}"
-                    class="flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors">
+                    class="flex shrink-0 items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors">
                     <i class='bx bx-arrow-back text-xl'></i>
                 </a>
 
-                <div class="flex flex-col min-w-0">
+                <div class="flex min-w-0 flex-1 flex-col">
                     <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                        <i class='bx bx-folder'></i>
-                        <span class="truncate max-w-[150px]">{{ @space_name }}</span>
+                        <i class='bx bx-folder shrink-0'></i>
+                        <span class="truncate max-w-[40vw] sm:max-w-[200px]">{{ @space_name }}</span>
                     </div>
-                    <h1 class="text-base font-semibold text-gray-900 dark:text-white truncate flex items-center gap-2">
-                        {{ @file_name }}
+                    <h1
+                        class="flex min-w-0 items-center gap-2 truncate text-sm font-semibold text-gray-900 dark:text-white sm:text-base">
+                        <span class="truncate">{{ @file_name }}</span>
                         <span x-show="unsavedChanges" x-transition
-                            class="w-2 h-2 rounded-full bg-yellow-500 inline-block" title="Unsaved changes"></span>
+                            class="h-2 w-2 shrink-0 rounded-full bg-yellow-500 inline-block"
+                            title="Unsaved changes"></span>
                     </h1>
                 </div>
             </div>
 
-            <div class="flex items-center gap-2 sm:gap-3">
+            <div class="flex shrink-0 items-center gap-1 sm:gap-2">
                 <!-- Toggle Preview -->
-                <button @click="togglePreview()"
-                    class="hidden sm:flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                <button @click="togglePreview()" x-show="isMarkdown"
+                    class="hidden sm:inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     :class="showPreview ? 'bg-gray-100 dark:bg-gray-700' : ''">
                     <i class='bx' :class="showPreview ? 'bx-hide' : 'bx-show'"></i>
                     <span x-text="showPreview ? 'Hide Preview' : 'Show Preview'"></span>
                 </button>
 
                 <!-- Mobile Toggle -->
-                <button @click="togglePreview()"
-                    class="sm:hidden p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">
+                <button @click="togglePreview()" x-show="isMarkdown" title="Toggle preview"
+                    class="inline-flex sm:hidden p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">
                     <i class='bx' :class="showPreview ? 'bx-hide' : 'bx-show'"></i>
                 </button>
 
                 <!-- Download -->
                 <button @click="downloadFile()"
-                    class="flex items-center gap-2 sm:px-3 sm:py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    class="inline-flex items-center gap-2 rounded-lg border border-gray-300 p-2 text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 sm:px-3 sm:py-1.5"
                     title="Download File">
                     <i class='bx bx-download text-lg'></i>
-                    <span class="hidden sm:flex items-center gap-2">
-                        Download
-                    </span>
+                    <span class="hidden sm:inline">Download</span>
                 </button>
 
                 <!-- Save -->
                 <template x-if="canEdit">
-                    <button @click="saveFile()"
-                        class="flex items-center gap-2 rounded-lg bg-black dark:bg-blue-600 px-4 py-2 text-sm text-white hover:bg-gray-800 dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    <button @click="saveFile()" title="Save file"
+                        class="inline-flex items-center gap-2 rounded-lg bg-black px-3 py-2 text-sm text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-700 sm:px-4"
                         :disabled="saving">
                         <i class='bx' :class="saving ? 'bx-loader-alt bx-spin' : 'bx-save'"></i>
                         <span x-text="saving ? 'Saving...' : 'Save'"></span>
@@ -76,7 +79,7 @@
                 </template>
                 <template x-if="!canEdit">
                     <span
-                        class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700">
+                        class="whitespace-nowrap rounded-full border border-gray-200 bg-gray-100 px-2.5 py-1.5 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 sm:px-3">
                         Read Only
                     </span>
                 </template>
@@ -88,15 +91,18 @@
     <main class="flex-1 flex overflow-hidden relative">
         <!-- Editor Pane (Textarea) -->
         <div class="h-full flex-1 relative bg-white dark:bg-gray-900 transition-all duration-300"
-            :class="showPreview ? 'w-1/2 hidden sm:block border-r border-gray-200 dark:border-gray-700' : 'w-full'">
-            <textarea x-model="content" @input="handleInput" x-ref="editor" @scroll="onScroll('editor')"
+            :class="isMarkdown && showPreview ? 'w-1/2 hidden sm:block border-r border-gray-200 dark:border-gray-700' : 'w-full'">
+            <textarea x-model="content" @input="handleInput" @keydown.tab="handleTab($event)"
+                x-ref="editor" @scroll="onScroll('editor')"
                 class="w-full h-full resize-none p-4 md:p-6 text-sm md:text-base font-mono bg-transparent border-0 focus:ring-0 outline-none text-gray-800 dark:text-gray-200 leading-relaxed"
-                placeholder="Start writing markdown..." spellcheck="false"></textarea>
+                :placeholder="isMarkdown ? 'Start writing markdown...' : 'Edit ' + (fileExtension || 'text') + ' content...'"
+                spellcheck="false"></textarea>
         </div>
 
         <!-- Preview Pane -->
-        <div class="h-full bg-white dark:bg-gray-800 overflow-y-auto transition-all duration-300"
-            :class="showPreview ? 'w-full sm:w-1/2 block' : 'w-0 hidden'" x-ref="preview" @scroll="onScroll('preview')">
+        <div x-show="isMarkdown" class="h-full bg-white dark:bg-gray-800 overflow-y-auto transition-all duration-300"
+            :class="showPreview ? 'w-full sm:w-1/2 block' : 'w-0 hidden'" x-ref="preview"
+            @scroll="onScroll('preview')">
             <div class="p-8 max-w-none mx-auto h-full">
                 <div class="md-display" x-html="parsedContent"></div>
             </div>
@@ -105,9 +111,10 @@
 
     <!-- FOOTER / STATUS BAR -->
     <footer
-        class="border-t border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 px-4 py-2 text-xs text-gray-600 dark:text-gray-400 flex items-center justify-end z-20 shrink-0">
-        <label
-            class="flex items-center gap-2 cursor-pointer select-none hover:text-gray-900 dark:hover:text-gray-200 transition-colors">
+        class="border-t border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 px-4 py-2 text-xs text-gray-600 dark:text-gray-400 flex items-center justify-between gap-3 z-20 shrink-0">
+        <span class="truncate" x-text="languageLabel"></span>
+        <label x-show="isMarkdown"
+            class="flex shrink-0 items-center gap-2 cursor-pointer select-none hover:text-gray-900 dark:hover:text-gray-200 transition-colors">
             <input type="checkbox" x-model="syncScroll"
                 class="rounded border-gray-300 text-black focus:ring-black dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600">
             <span>Sync Scroll</span>
@@ -157,140 +164,211 @@
 
             // Editor Manager
             Alpine.data('editorManager', () => ({
-                spaceId: '{{ @space_id }}',
-                fileId: '{{ @file_id }}',
-                fileName: '{{ @file_name }}',
-                canEdit: {{ @can_edit ? 'true' : 'false' }},
+                spaceId: '',
+                fileId: '',
+                fileName: '',
+                fileExtension: '',
+                isMarkdown: false,
+                canEdit: false,
 
-            content: '',
-            parsedContent: '',
-            unsavedChanges: false,
-            saving: false,
-            showPreview: true, // Default open on desktop
-            syncScroll: true,
-            isScrolling: false,
+                content: '',
+                parsedContent: '',
+                unsavedChanges: false,
+                saving: false,
+                showPreview: false,
+                syncScroll: true,
+                isScrolling: false,
 
-            init() {
-            this.loadFile();
-
-            // Handle responsive preview default
-            if(window.innerWidth < 640) {
-            this.showPreview = false;
-        }
-
-        // Ctrl+S to save
-        document.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                e.preventDefault();
-                this.saveFile();
-            }
-        });
+                get languageLabel() {
+                    if (this.isMarkdown) return 'Markdown';
+                    return this.fileExtension ? `${this.fileExtension} source` : 'Plain text';
                 },
 
-        handleInput() {
-            this.parsedContent = marked.parse(this.content);
-            this.unsavedChanges = true;
-        },
+                init() {
+                    const el = this.$el;
+                    this.spaceId = el.dataset.spaceId || '';
+                    this.fileId = el.dataset.fileId || '';
+                    this.fileName = el.dataset.fileName || 'file';
+                    this.fileExtension = (el.dataset.fileExtension || '').toUpperCase();
+                    this.isMarkdown = el.dataset.isMarkdown === '1';
+                    this.canEdit = el.dataset.canEdit === '1';
+
+                    // Only Markdown gets a preview; code/text files use the
+                    // full editor width without any Markdown preview pane.
+                    this.showPreview = this.isMarkdown && window.innerWidth >= 640;
+
+                    this.loadFile();
+
+                    document.addEventListener('keydown', (e) => {
+                        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                            e.preventDefault();
+                            this.saveFile();
+                        }
+                    });
+
+                    window.addEventListener('beforeunload', (e) => {
+                        if (!this.unsavedChanges) return;
+                        e.preventDefault();
+                        e.returnValue = '';
+                    });
+                },
+
+                handleInput() {
+                    this.unsavedChanges = true;
+
+                    if (this.isMarkdown) {
+                        this.parsedContent = window.renderMarkdown(this.content);
+                    }
+                },
 
                 async loadFile() {
-            try {
-                const response = await fetch(`/api/spaces/${this.spaceId}/files/${this.fileId}/view?raw=1`);
-                if (!response.ok) throw new Error('Failed to load file');
+                    try {
+                        const response = await fetch(`/api/spaces/${this.spaceId}/files/${this.fileId}/view?raw=1`, {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                            credentials: 'same-origin'
+                        });
 
-                const text = await response.text();
-                this.content = text;
-                this.parsedContent = marked.parse(text);
-                this.unsavedChanges = false;
+                        if (response.status === 401 || response.url.includes('/login')) {
+                            this.handleSessionExpired();
+                            return;
+                        }
 
-            } catch (error) {
-                showAlpineToast('Error loading file: ' + error.message, 'error');
-            }
-        },
+                        if (!response.ok) throw new Error('Failed to load file');
+
+                        const text = await response.text();
+                        this.content = text;
+                        this.parsedContent = this.isMarkdown ? window.renderMarkdown(text) : '';
+                        this.unsavedChanges = false;
+                    } catch (error) {
+                        showAlpineToast(error.message || 'Error loading file', 'error');
+                    }
+                },
+
+                handleSessionExpired() {
+                    if (window.__sessionExpiredHandled) return;
+
+                    window.__sessionExpiredHandled = true;
+                    showAlpineToast('Sesi Anda telah berakhir. Silakan login kembali.', 'error');
+                    setTimeout(() => { window.location.href = '/login'; }, 1200);
+                },
 
                 async saveFile() {
-            if (!this.canEdit) return;
+                    if (!this.canEdit || this.saving) return;
 
-            this.saving = true;
-            try {
-                const response = await fetch(`/api/spaces/${this.spaceId}/files/${this.fileId}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        content: this.content
-                    })
-                });
+                    this.saving = true;
+                    try {
+                        const result = await apiFetch(`/api/spaces/${this.spaceId}/files/${this.fileId}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                content: this.content
+                            })
+                        });
 
-                const result = await response.json();
-
-                if (result.success) {
-                    showAlpineToast('File saved successfully!', 'success');
-                    this.unsavedChanges = false;
-                } else {
-                    showAlpineToast(result.message || 'Failed to save file', 'error');
-                }
-            } catch (error) {
-                showAlpineToast('Error saving file: ' + error.message, 'error');
-            } finally {
-                this.saving = false;
-            }
-        },
+                        if (result.success) {
+                            showAlpineToast('File saved successfully!', 'success');
+                            this.unsavedChanges = false;
+                        } else {
+                            showAlpineToast(result.message || 'Failed to save file', 'error');
+                        }
+                    } catch (error) {
+                        if (error.name !== 'AuthError') {
+                            showAlpineToast(error.message || 'Error saving file', 'error');
+                        }
+                    } finally {
+                        this.saving = false;
+                    }
+                },
 
                 async downloadFile() {
-            try {
-                const response = await fetch(`/api/spaces/${this.spaceId}/files/${this.fileId}/download`);
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = this.fileName;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                } else {
-                    showAlpineToast('Failed to download file', 'error');
+                    try {
+                        const response = await fetch(`/api/spaces/${this.spaceId}/files/${this.fileId}/download`, {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                            credentials: 'same-origin'
+                        });
+
+                        if (response.status === 401 || response.url.includes('/login')) {
+                            this.handleSessionExpired();
+                            return;
+                        }
+
+                        if (!response.ok) {
+                            showAlpineToast('Failed to download file', 'error');
+                            return;
+                        }
+
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = this.fileName || 'download';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+                    } catch (error) {
+                        showAlpineToast('Error downloading file: ' + error.message, 'error');
+                    }
+                },
+
+                togglePreview() {
+                    if (!this.isMarkdown) return;
+                    this.showPreview = !this.showPreview;
+                },
+
+                handleTab(event) {
+                    // Keep normal keyboard navigation for Markdown and Shift+Tab.
+                    if (event.shiftKey || this.isMarkdown) return;
+
+                    event.preventDefault();
+                    this.insertTab(event);
+                },
+
+                insertTab(event) {
+                    const el = event.target;
+                    const start = el.selectionStart;
+                    const end = el.selectionEnd;
+                    const indent = '    ';
+
+                    this.content = this.content.slice(0, start) + indent + this.content.slice(end);
+                    this.unsavedChanges = true;
+
+                    this.$nextTick(() => {
+                        el.selectionStart = el.selectionEnd = start + indent.length;
+                    });
+                },
+
+                onScroll(source) {
+                    if (!this.syncScroll || !this.isMarkdown || !this.showPreview) return;
+                    if (this.isScrolling) return;
+
+                    const editor = this.$refs.editor;
+                    const preview = this.$refs.preview;
+
+                    if (!editor || !preview) return;
+
+                    this.isScrolling = true;
+
+                    if (source === 'editor') {
+                        const max = editor.scrollHeight - editor.clientHeight;
+                        if (max > 0) {
+                            preview.scrollTop = (editor.scrollTop / max) *
+                                (preview.scrollHeight - preview.clientHeight);
+                        }
+                    } else {
+                        const max = preview.scrollHeight - preview.clientHeight;
+                        if (max > 0) {
+                            editor.scrollTop = (preview.scrollTop / max) *
+                                (editor.scrollHeight - editor.clientHeight);
+                        }
+                    }
+
+                    setTimeout(() => {
+                        this.isScrolling = false;
+                    }, 10);
                 }
-            } catch (error) {
-                showAlpineToast('Error downloading file: ' + error.message, 'error');
-            }
-        },
-
-        togglePreview() {
-            this.showPreview = !this.showPreview;
-        },
-
-        onScroll(source) {
-            if (!this.syncScroll) return;
-            // Prevent recursive triggering
-            if (this.isScrolling) return;
-
-            this.isScrolling = true;
-
-            const editor = this.$refs.editor;
-            const preview = this.$refs.preview;
-
-            if (source === 'editor') {
-                // Calculate percentage from editor
-                const percentage = editor.scrollTop / (editor.scrollHeight - editor.clientHeight);
-                if (!isNaN(percentage)) {
-                    preview.scrollTop = percentage * (preview.scrollHeight - preview.clientHeight);
-                }
-            } else {
-                // Calculate percentage from preview
-                const percentage = preview.scrollTop / (preview.scrollHeight - preview.clientHeight);
-                if (!isNaN(percentage)) {
-                    editor.scrollTop = percentage * (editor.scrollHeight - editor.clientHeight);
-                }
-            }
-
-            // Small timeout to unlock
-            setTimeout(() => {
-                this.isScrolling = false;
-            }, 10);
-        }
             }));
         });
     </script>

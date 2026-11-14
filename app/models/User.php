@@ -57,4 +57,103 @@ class User extends \DB\SQL\Mapper
         $this->token_expires_at = null;
         $this->save();
     }
+
+    /**
+     * Create a new remember-me token for a single device.
+     * Returns the raw token (stored in the cookie); only its hash is persisted.
+     */
+    public static function createRememberToken($userId, $days = 30)
+    {
+        $db = Database::getInstance();
+
+        // Housekeeping: drop expired tokens
+        $db->exec("DELETE FROM remember_tokens WHERE expires_at <= ?", [date('Y-m-d H:i:s')]);
+
+        $rawToken = bin2hex(random_bytes(32));
+        $tokenHash = hash('sha256', $rawToken);
+        $expiresAt = date('Y-m-d H:i:s', strtotime("+{$days} days"));
+        $userAgent = isset($_SERVER['HTTP_USER_AGENT'])
+            ? substr($_SERVER['HTTP_USER_AGENT'], 0, 255)
+            : null;
+
+        $db->exec(
+            "INSERT INTO remember_tokens (id, user_id, token_hash, expires_at, user_agent)
+             VALUES (?, ?, ?, ?, ?)",
+            [Database::generateId(), $userId, $tokenHash, $expiresAt, $userAgent]
+        );
+
+        return $rawToken;
+    }
+
+    /**
+     * Find a user by a raw remember-me token (valid and not expired).
+     */
+    public function findByRememberToken($rawToken)
+    {
+        if (empty($rawToken)) {
+            return null;
+        }
+
+        $db = Database::getInstance();
+        $result = $db->exec(
+            "SELECT u.id FROM users u
+             JOIN remember_tokens rt ON rt.user_id = u.id
+             WHERE rt.token_hash = ? AND rt.expires_at > ?
+             LIMIT 1",
+            [hash('sha256', $rawToken), date('Y-m-d H:i:s')]
+        );
+
+        if (empty($result)) {
+            return null;
+        }
+
+        $this->load(['id = ?', $result[0]['id']]);
+        return $this->loaded() ? $this : null;
+    }
+
+    /**
+     * Mark a token as used and optionally extend its lifetime (sliding window).
+     */
+    public static function touchRememberToken($rawToken, $days = 30)
+    {
+        if (empty($rawToken)) {
+            return false;
+        }
+
+        $db = Database::getInstance();
+        $now = date('Y-m-d H:i:s');
+        $expiresAt = date('Y-m-d H:i:s', strtotime("+{$days} days"));
+
+        $db->exec(
+            "UPDATE remember_tokens SET last_used_at = ?, expires_at = ? WHERE token_hash = ?",
+            [$now, $expiresAt, hash('sha256', $rawToken)]
+        );
+
+        return true;
+    }
+
+    /**
+     * Delete a single device token (used on logout).
+     */
+    public static function deleteRememberToken($rawToken)
+    {
+        if (empty($rawToken)) {
+            return;
+        }
+
+        $db = Database::getInstance();
+        $db->exec(
+            "DELETE FROM remember_tokens WHERE token_hash = ?",
+            [hash('sha256', $rawToken)]
+        );
+    }
+
+    /**
+     * Delete every remember-me token for a user (password change, account deletion).
+     */
+    public static function deleteAllRememberTokens($userId)
+    {
+        $db = Database::getInstance();
+        $db->exec("DELETE FROM remember_tokens WHERE user_id = ?", [$userId]);
+    }
 }

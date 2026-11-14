@@ -1,9 +1,115 @@
 <?php
 class File extends DB\SQL\Mapper
 {
+    private static $textExtensions = [
+        'md', 'markdown', 'mdown', 'mkd', 'txt', 'text', 'log', 'csv', 'tsv',
+        'html', 'htm', 'xhtml', 'css', 'scss', 'sass', 'less',
+        'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'json', 'jsonc', 'xml', 'svg',
+        'yml', 'yaml', 'toml', 'ini', 'conf', 'env', 'gitignore', 'htaccess',
+        'php', 'phtml', 'py', 'rb', 'java', 'c', 'h', 'cpp', 'hpp', 'cc', 'cs',
+        'go', 'rs', 'swift', 'kt', 'kts', 'dart', 'sh', 'bash', 'zsh', 'fish',
+        'ps1', 'bat', 'cmd', 'sql', 'graphql', 'gql', 'vue', 'svelte', 'astro',
+        'twig', 'blade', 'lock', 'map', 'properties', 'pl', 'lua', 'r', 'scala',
+        'clj', 'cljs', 'edn', 'ex', 'exs', 'erl', 'hrl', 'fs', 'fsx', 'vb',
+        'asm', 's', 'sol', 'proto', 'tf', 'tfvars', 'hcl', 'nginx', 'cmake',
+        'gradle', 'editorconfig'
+    ];
+
+    private static $textFilenames = [
+        'dockerfile', 'makefile', 'license', 'licence', 'readme', 'changelog',
+        'procfile', 'gemfile', 'rakefile', 'vagrantfile', 'jenkinsfile',
+        '.env', '.gitignore', '.htaccess', '.editorconfig'
+    ];
+
     public function __construct()
     {
         parent::__construct(Database::getInstance(), 'files');
+    }
+
+    /**
+     * Check whether a file can be edited as plain text
+     */
+    public static function isTextFile($filename, $mimeType = null)
+    {
+        $extension = strtolower(pathinfo((string) $filename, PATHINFO_EXTENSION));
+        $basename = strtolower(basename((string) $filename));
+
+        if ($extension !== '' && in_array($extension, self::$textExtensions, true)) {
+            return true;
+        }
+
+        if (in_array($basename, self::$textFilenames, true)) {
+            return true;
+        }
+
+        $mimeType = strtolower((string) $mimeType);
+
+        if ($mimeType !== '') {
+            if (str_starts_with($mimeType, 'text/')) {
+                return true;
+            }
+
+            $textMimeTypes = [
+                'application/json',
+                'application/xml',
+                'application/javascript',
+                'application/x-javascript',
+                'application/ecmascript',
+                'application/x-httpd-php',
+                'application/x-sh',
+                'application/sql',
+                'application/graphql',
+                'application/x-yaml',
+                'application/yaml',
+                'application/toml',
+                'image/svg+xml'
+            ];
+
+            if (in_array($mimeType, $textMimeTypes, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check whether a file should be edited as markdown
+     */
+    public static function isMarkdownFile($filename)
+    {
+        $extension = strtolower(pathinfo((string) $filename, PATHINFO_EXTENSION));
+        return in_array($extension, ['md', 'markdown', 'mdown', 'mkd'], true);
+    }
+
+    /**
+     * Check whether a browser can display this file inline.
+     * Everything else should be sent as a download.
+     */
+    public static function isInlineViewable($filename, $mimeType = null)
+    {
+        $mimeType = strtolower((string) $mimeType);
+        $extension = strtolower(pathinfo((string) $filename, PATHINFO_EXTENSION));
+
+        if ($mimeType !== '') {
+            if (str_starts_with($mimeType, 'image/') && $mimeType !== 'image/svg+xml') {
+                return true;
+            }
+
+            if (str_starts_with($mimeType, 'audio/') || str_starts_with($mimeType, 'video/')) {
+                return true;
+            }
+
+            if ($mimeType === 'application/pdf') {
+                return true;
+            }
+        }
+
+        return in_array($extension, [
+            'pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif', 'ico',
+            'mp3', 'wav', 'ogg', 'oga', 'm4a', 'flac',
+            'mp4', 'webm', 'ogv', 'mov', 'm4v'
+        ], true);
     }
 
     /**
@@ -13,12 +119,206 @@ class File extends DB\SQL\Mapper
     {
         $db = Database::getInstance();
         $result = $db->exec(
-            "SELECT id, space_id, original_name, file_path, mime_type, file_size, uploaded_by, uploaded_at
+            "SELECT id, space_id, original_name, file_path, mime_type, file_size, uploaded_by, uploaded_at, group_name
             FROM files
             WHERE space_id = ?
             ORDER BY uploaded_at DESC",
             [$spaceId]
         );
+        return $result ?: [];
+    }
+
+    /**
+     * Merge one or more files into a group (or remove them from their group when no name is given)
+     */
+    public function mergeFilesToGroup($spaceId, $fileIds, $groupName, $userId)
+    {
+        $db = Database::getInstance();
+        $access = $this->getSpaceAccess($spaceId, $userId);
+
+        if (!$access['found']) {
+            return ['success' => false, 'message' => 'Space not found', 'status' => 404];
+        }
+
+        if (!$access['allowed']) {
+            return ['success' => false, 'message' => 'You do not have permission to manage groups', 'status' => 403];
+        }
+
+        $ids = [];
+        foreach ((array) $fileIds as $id) {
+            if (is_string($id) || is_int($id)) {
+                $id = trim((string) $id);
+                if ($id !== '') {
+                    $ids[$id] = $id;
+                }
+            }
+        }
+        $ids = array_values($ids);
+
+        if (empty($ids)) {
+            return ['success' => false, 'message' => 'No files selected', 'status' => 400];
+        }
+
+        $name = $this->normalizeGroupName($groupName);
+        $name = $name === '' ? null : $this->resolveGroupName($spaceId, $name);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        $matchingFiles = $db->exec(
+            "SELECT id FROM files
+             WHERE space_id = ? AND original_name <> ? AND id IN ($placeholders)",
+            array_merge([$spaceId, 'README.md'], $ids)
+        );
+
+        if (empty($matchingFiles)) {
+            return ['success' => false, 'message' => 'No matching files found', 'status' => 404];
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $db->exec(
+            "UPDATE files SET group_name = ?, updated_at = ?
+             WHERE space_id = ? AND original_name <> ? AND id IN ($placeholders)",
+            array_merge([$name, $now, $spaceId, 'README.md'], $ids)
+        );
+        $db->exec("UPDATE spaces SET updated_at = ? WHERE id = ?", [$now, $spaceId]);
+
+        return [
+            'success' => true,
+            'message' => $name === null ? 'Files removed from group' : 'Files merged into group successfully',
+            'group_name' => $name,
+            'count' => count($matchingFiles)
+        ];
+    }
+
+    /**
+     * Remove every file from a group without deleting the files
+     */
+    public function releaseGroup($spaceId, $groupName, $userId)
+    {
+        $db = Database::getInstance();
+        $access = $this->getSpaceAccess($spaceId, $userId);
+
+        if (!$access['found']) {
+            return ['success' => false, 'message' => 'Space not found', 'status' => 404];
+        }
+
+        if (!$access['allowed']) {
+            return ['success' => false, 'message' => 'You do not have permission to manage groups', 'status' => 403];
+        }
+
+        $name = $this->normalizeGroupName($groupName);
+
+        if ($name === '') {
+            return ['success' => false, 'message' => 'Group name is required', 'status' => 400];
+        }
+
+        $files = $db->exec(
+            "SELECT id FROM files
+             WHERE space_id = ? AND group_name IS NOT NULL
+               AND LOWER(group_name) = LOWER(?) AND original_name <> ?",
+            [$spaceId, $name, 'README.md']
+        );
+
+        if (empty($files)) {
+            return ['success' => false, 'message' => 'Group not found', 'status' => 404];
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $db->exec(
+            "UPDATE files SET group_name = NULL, updated_at = ?
+             WHERE space_id = ? AND group_name IS NOT NULL
+               AND LOWER(group_name) = LOWER(?) AND original_name <> ?",
+            [$now, $spaceId, $name, 'README.md']
+        );
+        $db->exec("UPDATE spaces SET updated_at = ? WHERE id = ?", [$now, $spaceId]);
+
+        return [
+            'success' => true,
+            'message' => 'All files released from group',
+            'group_name' => $name,
+            'count' => count($files)
+        ];
+    }
+
+    /**
+     * Delete every file inside a group
+     */
+    public function deleteGroup($spaceId, $groupName, $userId)
+    {
+        $db = Database::getInstance();
+        $access = $this->getSpaceAccess($spaceId, $userId);
+
+        if (!$access['found']) {
+            return ['success' => false, 'message' => 'Space not found', 'status' => 404];
+        }
+
+        if (!$access['allowed']) {
+            return ['success' => false, 'message' => 'You do not have permission to manage groups', 'status' => 403];
+        }
+
+        $name = $this->normalizeGroupName($groupName);
+
+        if ($name === '') {
+            return ['success' => false, 'message' => 'Group name is required', 'status' => 400];
+        }
+
+        $files = $db->exec(
+            "SELECT id, file_path FROM files
+             WHERE space_id = ? AND group_name IS NOT NULL
+               AND LOWER(group_name) = LOWER(?) AND original_name <> ?",
+            [$spaceId, $name, 'README.md']
+        );
+
+        if (empty($files)) {
+            return ['success' => false, 'message' => 'Group not found', 'status' => 404];
+        }
+
+        $ids = [];
+        foreach ($files as $file) {
+            $physicalPath = __DIR__ . '/../../' . $file['file_path'];
+            if (file_exists($physicalPath)) {
+                unlink($physicalPath);
+            }
+            $ids[] = $file['id'];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $db->exec(
+            "DELETE FROM files WHERE space_id = ? AND id IN ($placeholders)",
+            array_merge([$spaceId], $ids)
+        );
+
+        $now = date('Y-m-d H:i:s');
+        $db->exec("UPDATE spaces SET updated_at = ? WHERE id = ?", [$now, $spaceId]);
+
+        return [
+            'success' => true,
+            'message' => 'All files in the group were deleted',
+            'group_name' => $name,
+            'count' => count($ids)
+        ];
+    }
+
+    /**
+     * Get all downloadable files in a group
+     */
+    public function getGroupFiles($spaceId, $groupName)
+    {
+        $name = $this->normalizeGroupName($groupName);
+
+        if ($name === '') {
+            return [];
+        }
+
+        $db = Database::getInstance();
+        $result = $db->exec(
+            "SELECT id, space_id, original_name, file_path, mime_type, file_size, uploaded_by, uploaded_at, group_name
+             FROM files
+             WHERE space_id = ? AND group_name IS NOT NULL
+               AND LOWER(group_name) = LOWER(?) AND original_name <> ?
+             ORDER BY original_name ASC",
+            [$spaceId, $name, 'README.md']
+        );
+
         return $result ?: [];
     }
 
@@ -60,11 +360,12 @@ class File extends DB\SQL\Mapper
             return ['success' => false, 'message' => 'You do not have permission to upload to this space'];
         }
 
-        // Generate unique filename
+        // Generate unique filename. Store it with a neutral extension so an
+        // uploaded .php/.phtml file can never be executed by the web server.
+        // The original name and detected MIME type are kept in the database.
         $originalName = $uploadedFile['name'];
-        $extension = pathinfo($originalName, PATHINFO_EXTENSION);
         $uniqueCode = Database::generateId();
-        $filename = $uniqueCode . '.' . $extension;
+        $filename = $uniqueCode . '.dat';
 
         // Create upload directory if not exists
         $uploadDir = __DIR__ . '/../../public/uploads/spaces/' . $spaceId;
@@ -117,7 +418,9 @@ class File extends DB\SQL\Mapper
      */
     public function deleteFile($fileId, $userId, $spaceId)
     {
-        $this->load(['id = ?', $fileId]);
+        // The file must belong to the space in the route. Without this check a
+        // user with access to one space could delete a file from another space.
+        $this->load(['id = ? AND space_id = ?', $fileId, $spaceId]);
 
         if ($this->dry()) {
             return ['success' => false, 'message' => 'File not found'];
@@ -176,6 +479,7 @@ class File extends DB\SQL\Mapper
 
         return [
             'id' => $this->id,
+            'space_id' => $this->space_id,
             'original_name' => $this->original_name,
             'file_path' => __DIR__ . '/../../' . $this->file_path,
             'mime_type' => $this->mime_type,
@@ -190,9 +494,20 @@ class File extends DB\SQL\Mapper
     {
         $db = Database::getInstance();
 
-        // Check if user is owner
-        $space = $db->exec("SELECT owner_id FROM spaces WHERE id = ?", [$spaceId]);
-        if (empty($space) || $space[0]['owner_id'] != $userId) {
+        // Check if user is owner or has shared access
+        $spaceCheck = $db->exec(
+            "SELECT s.owner_id,
+                    CASE WHEN s.owner_id = ? THEN 1 ELSE 0 END as is_owner,
+                    EXISTS(SELECT 1 FROM space_access WHERE space_id = s.id AND user_id = ?) as has_shared_access
+             FROM spaces s WHERE s.id = ?",
+            [$userId, $userId, $spaceId]
+        );
+
+        if (empty($spaceCheck)) {
+            return ['success' => false, 'message' => 'Space not found'];
+        }
+
+        if (!$spaceCheck[0]['is_owner'] && !$spaceCheck[0]['has_shared_access']) {
             return ['success' => false, 'message' => 'You do not have permission to edit README'];
         }
 
@@ -238,6 +553,10 @@ class File extends DB\SQL\Mapper
 
         if ($this->dry()) {
             return ['success' => false, 'message' => 'File not found'];
+        }
+
+        if (!self::isTextFile($this->original_name, $this->mime_type)) {
+            return ['success' => false, 'message' => 'This file cannot be edited as text'];
         }
 
         // Update physical file
@@ -286,6 +605,66 @@ class File extends DB\SQL\Mapper
             'content' => $content,
             'updated_at' => $result[0]['updated_at']
         ];
+    }
+
+    /**
+     * Check whether a user can manage files in a space
+     */
+    private function getSpaceAccess($spaceId, $userId)
+    {
+        $db = Database::getInstance();
+        $result = $db->exec(
+            "SELECT s.owner_id,
+                    CASE WHEN s.owner_id = ? THEN 1 ELSE 0 END as is_owner,
+                    EXISTS(SELECT 1 FROM space_access WHERE space_id = s.id AND user_id = ?) as has_shared_access
+             FROM spaces s WHERE s.id = ?",
+            [$userId, $userId, $spaceId]
+        );
+
+        if (empty($result)) {
+            return ['found' => false, 'allowed' => false];
+        }
+
+        $space = $result[0];
+
+        return [
+            'found' => true,
+            'allowed' => (bool) ($space['is_owner'] || $space['has_shared_access'])
+        ];
+    }
+
+    /**
+     * Normalize a group name
+     */
+    private function normalizeGroupName($name)
+    {
+        if (!is_string($name) && !is_numeric($name)) {
+            return '';
+        }
+
+        $name = trim(preg_replace('/\s+/', ' ', (string) $name));
+
+        if ($name === '') {
+            return '';
+        }
+
+        return function_exists('mb_substr') ? mb_substr($name, 0, 100) : substr($name, 0, 100);
+    }
+
+    /**
+     * Reuse the existing group spelling when the name only differs by case
+     */
+    private function resolveGroupName($spaceId, $name)
+    {
+        $db = Database::getInstance();
+        $result = $db->exec(
+            "SELECT group_name FROM files
+             WHERE space_id = ? AND group_name IS NOT NULL AND group_name <> ''
+               AND LOWER(group_name) = LOWER(?) LIMIT 1",
+            [$spaceId, $name]
+        );
+
+        return !empty($result) ? $result[0]['group_name'] : $name;
     }
 
     /**

@@ -14,6 +14,7 @@
     <link href="/node_modules/boxicons/css/boxicons.min.css" rel="stylesheet">
     <script src="/node_modules/alpinejs/dist/cdn.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/relativeTime.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/utc.js"></script>
@@ -23,6 +24,7 @@
     </script>
     <script>
         window.SPACE_ID = '{{ @space_id }}';
+        window.UPLOAD_MAX_BYTES = {{ @upload_max_bytes }};
     </script>
     <script src="/public/js/app.js"></script>
     <script src="/public/js/space.js"></script>
@@ -42,7 +44,7 @@
                 <div class="flex items-center gap-4">
                     <!-- UPLOAD BUTTON dengan Alpine.js -->
                     <div>
-                        <button @click="uploadModalOpen = true"
+                        <button @click="openUploadModal()"
                             class="inline-flex items-center gap-2 rounded-lg bg-gray-900 dark:bg-gray-700 px-3 py-2 text-sm text-white dark:text-gray-100 hover:bg-gray-800 dark:hover:bg-gray-600 transition-colors cursor-pointer">
                             <i class="bx bx-upload text-lg"></i>
                             <span class="hidden sm:inline">Upload File</span>
@@ -55,35 +57,37 @@
                             x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150"
                             x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
                             class="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4"
-                            @click.self="handleBackdropDoubleTap(() => uploadModalOpen = false)">
+                            @click.self="!uploading && handleBackdropDoubleTap(() => uploadModalOpen = false)">
 
                             <div
                                 class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl w-full max-w-lg border border-gray-200 dark:border-gray-700">
                                 <div class="flex items-center justify-between mb-4">
                                     <h3 class="font-semibold dark:text-white text-lg">Upload Files</h3>
-                                    <button @click="uploadModalOpen = false"
-                                        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer">
+                                    <button @click="!uploading && (uploadModalOpen = false)" :disabled="uploading"
+                                        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
                                         <i class="bx bx-x text-2xl"></i>
                                     </button>
                                 </div>
 
                                 <!-- Upload Zone -->
-                                <div @click="triggerFileInput()" @dragover.prevent="isDragging = true"
+                                <div @click="triggerFileInput()" @dragover.prevent="!uploading && (isDragging = true)"
                                     @dragleave.prevent="isDragging = false"
-                                    @drop.prevent="handleDrop($event); isDragging = false"
-                                    :class="isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-inner' : ''"
+                                    @drop.prevent="!uploading && (handleDrop($event), isDragging = false)"
+                                    :class="isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-inner' : (uploading ? 'opacity-50 cursor-not-allowed' : '')"
                                     class="mb-6 cursor-pointer rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-6 sm:p-8 text-center hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200">
                                     <i
                                         class="bx bx-cloud-upload text-4xl sm:text-5xl text-gray-400 dark:text-gray-500 mb-3"></i>
                                     <div class="text-sm font-medium dark:text-gray-300">Click or drop files to upload
                                     </div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Max file size: 100MB</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1"
+                                        x-text="'Max file size: ' + formatFileSize(Number(window.UPLOAD_MAX_BYTES) || 104857600)">
+                                    </p>
                                     <input type="file" id="fileUploadInput" @change="handleFileSelect($event)" multiple
-                                        class="hidden">
+                                        :disabled="uploading" class="hidden">
                                 </div>
 
                                 <!-- Selected Files List -->
-                                <div x-show="selectedFiles.length > 0" class="mb-6">
+                                <div x-show="!uploading && selectedFiles.length > 0" class="mb-6">
                                     <div class="mb-3 flex items-center justify-between">
                                         <h4 class="font-medium dark:text-white">Selected Files (<span
                                                 x-text="selectedFiles.length"></span>)</h4>
@@ -111,15 +115,69 @@
                                         </template>
                                     </div>
                                 </div>
+
+                                <!-- Upload Progress -->
+                                <div x-show="uploadItems.length > 0" class="mb-6">
+                                    <div class="mb-3 flex items-center justify-between">
+                                        <h4 class="font-medium dark:text-white"
+                                            x-text="uploading ? 'Uploading...' : 'Upload Result'"></h4>
+                                        <span class="text-sm font-semibold dark:text-gray-200"
+                                            x-text="overallProgress + '%'"></span>
+                                    </div>
+                                    <div
+                                        class="mb-3 h-2.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                                        <div class="h-full bg-blue-600 transition-all duration-150"
+                                            :style="`width: ${overallProgress}%`"></div>
+                                    </div>
+                                    <p x-show="uploading" class="mb-3 truncate text-xs text-gray-500 dark:text-gray-400"
+                                        x-text="currentFileName ? 'Mengunggah: ' + currentFileName : ''"></p>
+
+                                    <div class="max-h-52 space-y-2 overflow-y-auto p-2">
+                                        <template x-for="(item, index) in uploadItems" :key="index">
+                                            <div
+                                                class="rounded-lg border bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700">
+                                                <div class="flex items-center justify-between gap-3">
+                                                    <div class="min-w-0 flex-1">
+                                                        <p class="truncate text-sm font-medium dark:text-gray-300"
+                                                            x-text="item.name"></p>
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400"
+                                                            x-text="formatFileSize(item.size)"></p>
+                                                    </div>
+                                                    <div class="flex flex-shrink-0 items-center gap-2">
+                                                        <span x-show="item.status === 'pending'"
+                                                            class="text-xs text-gray-500 dark:text-gray-400">Menunggu</span>
+                                                        <span x-show="item.status === 'uploading'"
+                                                            class="text-xs text-blue-600 dark:text-blue-400"
+                                                            x-text="item.progress + '%'"></span>
+                                                        <i x-show="item.status === 'success'"
+                                                            class="bx bx-check-circle text-lg text-green-600 dark:text-green-400"></i>
+                                                        <i x-show="item.status === 'error'"
+                                                            class="bx bx-error-circle text-lg text-red-600 dark:text-red-400"></i>
+                                                    </div>
+                                                </div>
+                                                <div x-show="item.status === 'uploading'"
+                                                    class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-600">
+                                                    <div class="h-full bg-blue-500 transition-all duration-150"
+                                                        :style="`width: ${item.progress}%`"></div>
+                                                </div>
+                                                <p x-show="item.status === 'error' && item.error"
+                                                    class="mt-1 text-xs text-red-600 dark:text-red-400"
+                                                    x-text="item.error"></p>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+
                                 <div class="flex justify-end gap-3">
-                                    <button @click="uploadModalOpen = false"
-                                        class="rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                                        Cancel
+                                    <button @click="!uploading && (uploadModalOpen = false)" :disabled="uploading"
+                                        class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 cursor-pointer">
+                                        <span x-text="uploadItems.length > 0 && !uploading ? 'Close' : 'Cancel'"></span>
                                     </button>
-                                    <button @click="uploadFiles(); uploadModalOpen = false;"
-                                        :disabled="selectedFiles.length === 0"
-                                        class="rounded-lg bg-black dark:bg-gray-700 px-4 py-2 text-sm text-white dark:text-gray-100 hover:bg-gray-800 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
-                                        <i class="bx bx-upload mr-1"></i> Upload
+                                    <button @click="uploadFiles()"
+                                        :disabled="uploading || selectedFiles.length === 0"
+                                        class="rounded-lg bg-black px-4 py-2 text-sm text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600 cursor-pointer">
+                                        <i class="bx bx-upload mr-1"></i>
+                                        <span x-text="uploading ? 'Uploading...' : 'Upload'"></span>
                                     </button>
                                 </div>
                             </div>
@@ -521,65 +579,194 @@
 
 
 
-                <!-- Files Table -->
+                <!-- Files -->
                 <div class="mb-8">
                     <div
                         class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
-                        <div class="border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+                        <div
+                            class="flex items-center justify-between gap-3 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
                             <h3 class="font-medium text-gray-900 dark:text-white">Files (<span
-                                    x-text="files.length"></span>)</h3>
+                                    x-text="visibleFiles.length"></span>)</h3>
+                            <span x-show="groups.length > 0" class="text-xs text-gray-500 dark:text-gray-400">
+                                <span x-text="groups.length"></span> groups
+                            </span>
                         </div>
 
-                        <div x-show="files.length === 0" class="p-6 text-center">
+                        <div x-show="visibleFiles.length === 0" class="p-6 text-center">
                             <p class="text-gray-500 dark:text-gray-400">No files uploaded yet</p>
                         </div>
 
-                        <div class="overflow-x-auto" x-show="files.length > 0">
-                            <table class="w-full text-sm">
-                                <thead class="bg-gray-50 dark:bg-gray-900">
-                                    <tr>
-                                        <th class="p-3 text-left text-gray-700 dark:text-gray-300 w-full sm:w-auto">File
-                                            Name</th>
-                                        <th class="p-3 text-left text-gray-700 dark:text-gray-300 w-32">Size</th>
-                                        <th class="p-3 text-left text-gray-700 dark:text-gray-300 w-40">Uploaded</th>
-                                        <th class="p-3 text-left text-gray-700 dark:text-gray-300 w-48">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <template x-for="file in files" :key="file.id">
-                                        <tr
-                                            class="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                            <td class="p-3">
-                                                <div class="flex items-center gap-2">
-                                                    <i class="bx bx-file text-gray-500 dark:text-gray-400"></i>
-                                                    <span @click="viewFile(file.id)"
-                                                        class="text-gray-700 dark:text-gray-300 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer text-nowrap"
-                                                        x-text="file.original_name"></span>
+                        <div x-show="visibleFiles.length > 0" style="display: none;">
+                            <template x-for="entry in fileEntries" :key="entry.key">
+                                <div>
+                                    <template x-if="entry.type === 'group'">
+                                        <div
+                                            class="flex flex-col gap-2 border-t border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                                            <button type="button" @click="toggleGroup(entry.group.key)"
+                                                class="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer">
+                                                <i class="bx shrink-0 text-gray-500 dark:text-gray-400"
+                                                    :class="isGroupExpanded(entry.group.key) ? 'bx-chevron-down' : 'bx-chevron-right'"></i>
+                                                <i class="bx bx-folder shrink-0 text-lg text-yellow-500"></i>
+                                                <span class="min-w-0 truncate font-medium text-gray-900 dark:text-white"
+                                                    :title="entry.group.name" x-text="entry.group.name"></span>
+                                                <span
+                                                    class="shrink-0 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                                                    <span x-text="entry.group.files.length + ' file'"></span>
+                                                    <span aria-hidden="true">&middot;</span>
+                                                    <span x-text="formatFileSize(entry.group.totalSize)"></span>
+                                                </span>
+                                            </button>
+                                            <div class="hidden items-center gap-1 sm:flex sm:justify-end">
+                                                <button @click="downloadGroup(entry.group.name)"
+                                                    :disabled="groupBusy" title="Download all files"
+                                                    class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-900/20 cursor-pointer">
+                                                    <i class="bx bx-download"></i>
+                                                    <span>Download All</span>
+                                                </button>
+                                                <button x-show="canManageFiles"
+                                                    @click="releaseGroup(entry.group.name)" :disabled="groupBusy"
+                                                    title="Release all files"
+                                                    class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-800 cursor-pointer">
+                                                    <i class="bx bx-export"></i>
+                                                    <span>Release All</span>
+                                                </button>
+                                                <button x-show="canManageFiles"
+                                                    @click="deleteGroup(entry.group.name)" :disabled="groupBusy"
+                                                    title="Delete all files"
+                                                    class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-900/20 cursor-pointer">
+                                                    <i class="bx bx-trash"></i>
+                                                    <span>Delete All</span>
+                                                </button>
+                                            </div>
+                                            <button type="button" @click="openActionMenu('group', entry.group, $event)"
+                                                :disabled="groupBusy" title="Group actions" aria-haspopup="menu"
+                                                :aria-expanded="actionMenuOpen && actionMenuType === 'group' && actionMenuGroup && actionMenuGroup.key === entry.group.key ? 'true' : 'false'"
+                                                class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 sm:hidden cursor-pointer">
+                                                <i class="bx bx-dots-horizontal-rounded text-base"></i>
+                                                <span>Group actions</span>
+                                            </button>
+                                        </div>
+                                    </template>
+
+                                    <template x-if="entry.type === 'divider'">
+                                        <div
+                                            class="border-t border-gray-100 bg-gray-50 px-4 py-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
+                                            Ungrouped
+                                        </div>
+                                    </template>
+
+                                    <template x-if="entry.type === 'file'">
+                                        <div class="flex flex-col gap-2 border-t border-gray-100 px-4 py-3 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/50 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                                            :class="entry.grouped ? 'sm:pl-10' : ''">
+                                            <div class="flex min-w-0 flex-1 items-center gap-2">
+                                                <i :class="fileIcon(entry.file)"
+                                                    class="bx shrink-0 text-lg text-gray-500 dark:text-gray-400"></i>
+                                                <button type="button" @click="viewFile(entry.file)"
+                                                    class="min-w-0 truncate text-left text-gray-700 hover:text-blue-800 dark:text-gray-300 dark:hover:text-blue-300 cursor-pointer"
+                                                    :title="entry.file.original_name"
+                                                    x-text="entry.file.original_name"></button>
+                                            </div>
+                                            <div
+                                                class="flex flex-wrap items-center justify-between gap-2 pl-7 text-xs text-gray-500 dark:text-gray-400 sm:shrink-0 sm:justify-end sm:pl-0">
+                                                <div class="flex items-center gap-2 whitespace-nowrap">
+                                                    <span x-text="formatFileSize(entry.file.file_size)"></span>
+                                                    <span aria-hidden="true">&middot;</span>
+                                                    <span x-text="formatDate(entry.file.uploaded_at)"></span>
                                                 </div>
-                                            </td>
-                                            <td class="p-3 text-gray-600 dark:text-gray-300 text-nowrap"
-                                                x-text="formatFileSize(file.file_size)">
-                                            </td>
-                                            <td class="p-3 text-gray-600 dark:text-gray-300 text-nowrap"
-                                                x-text="formatDate(file.uploaded_at)"></td>
-                                            <td class="p-3">
-                                                <div class="flex gap-2">
-                                                    <button @click="downloadFile(file.id, file.original_name)"
-                                                        class="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer">
+                                                <div class="hidden items-center gap-1 sm:flex">
+                                                    <button
+                                                        @click="downloadFile(entry.file.id, entry.file.original_name)"
+                                                        title="Download file"
+                                                        class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 cursor-pointer">
                                                         <i class="bx bx-download"></i>
                                                         <span>Download</span>
                                                     </button>
-                                                    <button @click="deleteFile(file.id, file.original_name)"
-                                                        class="flex items-center gap-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 cursor-pointer">
+                                                    <button
+                                                        x-show="canManageFiles && isSelectableFile(entry.file)"
+                                                        @click="openMergeModalForFile(entry.file)"
+                                                        title="Merge into a group"
+                                                        class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 cursor-pointer">
+                                                        <i class="bx bx-layer-plus"></i>
+                                                        <span>Merge</span>
+                                                    </button>
+                                                    <button
+                                                        x-show="canManageFiles && isSelectableFile(entry.file)"
+                                                        @click="deleteFile(entry.file.id, entry.file.original_name)"
+                                                        title="Delete file"
+                                                        class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 cursor-pointer">
                                                         <i class="bx bx-trash"></i>
                                                         <span>Delete</span>
                                                     </button>
                                                 </div>
-                                            </td>
-                                        </tr>
+                                            </div>
+                                            <button type="button"
+                                                @click="openActionMenu('file', entry.file, $event)"
+                                                title="File actions" aria-haspopup="menu"
+                                                :aria-expanded="actionMenuOpen && actionMenuType === 'file' && actionMenuFile && actionMenuFile.id === entry.file.id ? 'true' : 'false'"
+                                                class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 sm:hidden cursor-pointer">
+                                                <i class="bx bx-dots-horizontal-rounded text-base"></i>
+                                                <span>Actions</span>
+                                            </button>
+                                        </div>
                                     </template>
-                                </tbody>
-                            </table>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Merge Group Modal -->
+                <div x-show="mergeModalOpen" style="display: none;"
+                    x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
+                    x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150"
+                    x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 dark:bg-black/60"
+                    @click.self="closeMergeModal()">
+                    <div
+                        class="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-800">
+                        <div class="mb-4 flex items-center justify-between">
+                            <h3 class="text-lg font-semibold dark:text-white">Merge to Group</h3>
+                            <button @click="closeMergeModal()" :disabled="groupBusy"
+                                class="text-gray-500 hover:text-gray-700 disabled:opacity-40 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer">
+                                <i class="bx bx-x text-2xl"></i>
+                            </button>
+                        </div>
+
+                        <p class="mb-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            <i class="bx bx-file"></i>
+                            <span class="truncate"
+                                x-text="mergeSourceFile ? mergeSourceFile.original_name : ''"></span>
+                        </p>
+
+                        <label class="mb-2 block text-sm font-medium dark:text-gray-300">Group name</label>
+                        <input type="text" x-model="mergeGroupName" list="groupSuggestions"
+                            @keydown.enter.prevent="submitMerge()" :disabled="groupBusy"
+                            placeholder="e.g. Photos"
+                            class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                        <datalist id="groupSuggestions">
+                            <template x-for="group in groups" :key="group.key">
+                                <option :value="group.name"></option>
+                            </template>
+                        </datalist>
+                        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            Ketik nama baru atau pilih group yang sudah ada. Nama yang sama akan digabung otomatis.
+                        </p>
+
+                        <div
+                            class="mt-6 flex flex-col-reverse gap-2 border-t border-gray-200 pt-4 dark:border-gray-700 sm:flex-row sm:justify-end">
+                            <button x-show="mergeSourceFile && mergeSourceFile.group_name"
+                                @click="removeFilesFromGroup()" :disabled="groupBusy"
+                                class="rounded-lg border border-red-200 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/20 cursor-pointer">
+                                Remove from group
+                            </button>
+                            <button @click="closeMergeModal()" :disabled="groupBusy"
+                                class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 cursor-pointer">
+                                Cancel
+                            </button>
+                            <button @click="submitMerge()" :disabled="groupBusy"
+                                class="rounded-lg bg-black px-4 py-2.5 text-sm text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600 cursor-pointer">
+                                <span x-text="groupBusy ? 'Saving...' : 'Save'"></span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -594,11 +781,15 @@
                             <h3 class="font-medium text-gray-900 dark:text-white">README.md</h3>
                         </div>
 
-                        <!-- EDIT README BUTTON -->
+                        <!-- README ACTIONS -->
                         <div>
-                            <button @click="editReadmeModalOpen = true; editReadmeContent = readme.content"
+                            <button type="button" @click="openActionMenu('readme', null, $event)"
+                                title="README actions" aria-haspopup="menu"
+                                :aria-expanded="actionMenuOpen && actionMenuType === 'readme' ? 'true' : 'false'"
                                 class="flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm transition-colors cursor-pointer">
-                                <i class="bx bx-edit"></i> Edit
+                                <i class="bx bx-edit"></i>
+                                <span>Edit</span>
+                                <i class="bx bx-chevron-down text-base"></i>
                             </button>
 
                             <!-- Edit README Modal -->
@@ -647,7 +838,7 @@
                     <div class="p-4 sm:p-6">
                         <div class="prose dark:prose-invert max-w-none">
                             <template x-if="readme.content">
-                                <div class="md-display pb-4" x-html="marked.parse(readme.content)"></div>
+                                <div class="md-display pb-4" x-html="renderMarkdown(readme.content)"></div>
                             </template>
                             <template x-if="!readme.content">
                                 <p class="text-gray-500 dark:text-gray-400">No README content yet</p>
@@ -666,6 +857,85 @@
                 <p>&copy; 2026 TinySpaces. All rights reserved.</p>
             </div>
         </main>
+    </div>
+
+    <!-- MOBILE ACTION DROPDOWN (shared) -->
+    <div x-show="actionMenuOpen" style="display: none;" x-transition.opacity.duration.100ms
+        class="fixed inset-0 z-[55]" @click="closeActionMenu()" aria-hidden="true"></div>
+    <div x-show="actionMenuOpen" style="display: none;"
+        x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95"
+        x-transition:enter-end="opacity-100 scale-100" x-transition:leave="transition ease-in duration-75"
+        x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+        class="fixed z-[60] w-44 origin-top-right overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+        :style="actionMenuStyle" role="menu" @keydown.escape.window="closeActionMenu()"
+        @scroll.window="closeActionMenu()" @resize.window="closeActionMenu()">
+
+        <template x-if="actionMenuType === 'file' && actionMenuFile">
+            <div>
+                <button type="button" role="menuitem"
+                    @click="closeActionMenu(); downloadFile(actionMenuFile.id, actionMenuFile.original_name)"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 cursor-pointer">
+                    <i class="bx bx-download text-base"></i>
+                    <span>Download</span>
+                </button>
+                <button type="button" role="menuitem"
+                    x-show="canManageFiles && isSelectableFile(actionMenuFile)"
+                    @click="closeActionMenu(); openMergeModalForFile(actionMenuFile)"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 cursor-pointer">
+                    <i class="bx bx-layer-plus text-base"></i>
+                    <span>Merge</span>
+                </button>
+                <button type="button" role="menuitem"
+                    x-show="canManageFiles && isSelectableFile(actionMenuFile)"
+                    @click="closeActionMenu(); deleteFile(actionMenuFile.id, actionMenuFile.original_name)"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 cursor-pointer">
+                    <i class="bx bx-trash text-base"></i>
+                    <span>Delete</span>
+                </button>
+            </div>
+        </template>
+
+        <template x-if="actionMenuType === 'group' && actionMenuGroup">
+            <div>
+                <button type="button" role="menuitem"
+                    @click="closeActionMenu(); downloadGroup(actionMenuGroup.name)"
+                    :disabled="groupBusy"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-blue-600 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-900/20 cursor-pointer">
+                    <i class="bx bx-download text-base"></i>
+                    <span>Download All</span>
+                </button>
+                <button type="button" role="menuitem" x-show="canManageFiles"
+                    @click="closeActionMenu(); releaseGroup(actionMenuGroup.name)"
+                    :disabled="groupBusy"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-300 dark:hover:bg-gray-700 cursor-pointer">
+                    <i class="bx bx-export text-base"></i>
+                    <span>Release All</span>
+                </button>
+                <button type="button" role="menuitem" x-show="canManageFiles"
+                    @click="closeActionMenu(); deleteGroup(actionMenuGroup.name)"
+                    :disabled="groupBusy"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-900/20 cursor-pointer">
+                    <i class="bx bx-trash text-base"></i>
+                    <span>Delete All</span>
+                </button>
+            </div>
+        </template>
+
+        <template x-if="actionMenuType === 'readme'">
+            <div>
+                <button type="button" role="menuitem" @click="openQuickEditReadme()"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 cursor-pointer">
+                    <i class="bx bx-edit-alt text-base"></i>
+                    <span>Edit cepat</span>
+                </button>
+                <a x-show="readmeFile" :href="readmeFile ? '/user/editor/' + spaceId + '/' + readmeFile.id : '#'"
+                    @click="closeActionMenu()" role="menuitem"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 cursor-pointer">
+                    <i class="bx bx-code-alt text-base"></i>
+                    <span>Edit di editor</span>
+                </a>
+            </div>
+        </template>
     </div>
 
     <!-- TOAST COMPONENT -->

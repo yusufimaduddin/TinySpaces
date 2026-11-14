@@ -55,6 +55,7 @@ class UserController
         $this->f3->set('email', $this->f3->get('SESSION.email'));
         $this->f3->set('role', $this->f3->get('SESSION.role'));
         $this->f3->set('space_id', $spaceId);
+        $this->f3->set('upload_max_bytes', $this->getUploadMaxBytes());
 
         echo \Template::instance()->render('user/space.html');
     }
@@ -76,18 +77,26 @@ class UserController
 
         // Get file info
         $file = (new File())->getFile($fileId);
-        if (!$file) {
+        if (!$file || $file['space_id'] !== $spaceId) {
             $this->f3->error(404, 'File not found');
             return;
         }
 
+        if (!File::isTextFile($file['original_name'], $file['mime_type'])) {
+            $this->f3->error(400, 'This file cannot be edited as text');
+            return;
+        }
+
         $canEdit = $space['is_owner'] || $space['has_shared_access'];
+        $extension = strtoupper(pathinfo($file['original_name'], PATHINFO_EXTENSION));
 
         $this->f3->set('title', 'Editor - ' . $file['original_name']);
         $this->f3->set('space_id', $spaceId);
         $this->f3->set('space_name', $space['name']);
         $this->f3->set('file_id', $fileId);
         $this->f3->set('file_name', $file['original_name']);
+        $this->f3->set('file_extension', $extension);
+        $this->f3->set('is_markdown', File::isMarkdownFile($file['original_name']));
         $this->f3->set('can_edit', $canEdit);
         $this->f3->set('username', $this->f3->get('SESSION.username'));
 
@@ -204,6 +213,10 @@ class UserController
             [$newPasswordHash, $timestamp, $userId]
         );
 
+        // Revoke all remember-me tokens after a password change
+        User::deleteAllRememberTokens($userId);
+        AuthController::clearRememberCookie();
+
         $this->jsonResponse(['success' => true, 'message' => 'Password changed successfully']);
     }
 
@@ -247,16 +260,14 @@ class UserController
                 }
             }
 
+            // Revoke all remember-me tokens before deleting the account
+            User::deleteAllRememberTokens($userId);
+
             // Delete user (CASCADE will handle spaces, files, tags, and access)
             $db->exec("DELETE FROM users WHERE id = ?", [$userId]);
 
             // Clear remember token cookie
-            if (isset($_COOKIE['remember_token'])) {
-                setcookie('remember_token', '', [
-                    'expires' => time() - 3600,
-                    'path' => '/'
-                ]);
-            }
+            AuthController::clearRememberCookie();
 
             // Destroy session
             session_destroy();
@@ -266,6 +277,47 @@ class UserController
         } catch (Exception $e) {
             $this->jsonResponse(['success' => false, 'message' => 'Failed to delete account: ' . $e->getMessage()]);
         }
+    }
+
+    /**
+     * Effective per-file upload limit: the smallest of the app limit,
+     * upload_max_filesize and post_max_size.
+     */
+    private function getUploadMaxBytes()
+    {
+        $toBytes = function ($value) {
+            $value = trim((string) $value);
+            if ($value === '') {
+                return 0;
+            }
+
+            $unit = strtolower(substr($value, -1));
+            $number = (int) $value;
+
+            switch ($unit) {
+                case 'g':
+                    return $number * 1024 * 1024 * 1024;
+                case 'm':
+                    return $number * 1024 * 1024;
+                case 'k':
+                    return $number * 1024;
+                default:
+                    return $number;
+            }
+        };
+
+        $limit = 100 * 1024 * 1024;
+        $uploadMax = $toBytes(ini_get('upload_max_filesize'));
+        $postMax = $toBytes(ini_get('post_max_size'));
+
+        if ($uploadMax > 0) {
+            $limit = min($limit, $uploadMax);
+        }
+        if ($postMax > 0) {
+            $limit = min($limit, $postMax);
+        }
+
+        return $limit;
     }
 
     private function jsonResponse($data)

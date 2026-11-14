@@ -26,9 +26,10 @@ class Database
     public static function generateId($length = 12)
     {
         $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        $maxIndex = strlen($chars) - 1;
         $id = '';
         for ($i = 0; $i < $length; $i++) {
-            $id .= $chars[rand(0, strlen($chars) - 1)];
+            $id .= $chars[random_int(0, $maxIndex)];
         }
         return $id;
     }
@@ -78,6 +79,7 @@ class Database
             uploaded_by VARCHAR(12) NOT NULL,
             uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            group_name VARCHAR(100) DEFAULT NULL,
             FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE CASCADE,
             FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE
         )";
@@ -117,6 +119,20 @@ class Database
 
         $db->exec($sql_space_access);
 
+        // Remember-me tokens (one row per device/session)
+        $sql_remember_tokens = "CREATE TABLE IF NOT EXISTS remember_tokens (
+            id VARCHAR(12) PRIMARY KEY NOT NULL,
+            user_id VARCHAR(12) NOT NULL,
+            token_hash VARCHAR(64) NOT NULL UNIQUE,
+            expires_at TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_used_at TIMESTAMP DEFAULT NULL,
+            user_agent TEXT DEFAULT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )";
+
+        $db->exec($sql_remember_tokens);
+
         // Create indexes for better performance
         $db->exec("CREATE INDEX IF NOT EXISTS idx_spaces_owner ON spaces(owner_id)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_spaces_status ON spaces(status)");
@@ -125,6 +141,8 @@ class Database
         $db->exec("CREATE INDEX IF NOT EXISTS idx_space_tags_tag ON space_tags(tag_id)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_space_access_space ON space_access(space_id)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_space_access_user ON space_access(user_id)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_remember_tokens_user ON remember_tokens(user_id)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_remember_tokens_expires ON remember_tokens(expires_at)");
 
         // Insert default admin user if not exists
         self::createDefaultAdmin();
@@ -135,6 +153,15 @@ class Database
         } catch (\Exception $e) {
             // Column likely already exists, ignore
         }
+
+        // Migration: Add group_name column if not exists
+        try {
+            $db->exec("ALTER TABLE files ADD COLUMN group_name VARCHAR(100) DEFAULT NULL");
+        } catch (\Exception $e) {
+            // Column likely already exists, ignore
+        }
+
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_files_group ON files(space_id, group_name)");
     }
 
     private static function createDefaultAdmin()

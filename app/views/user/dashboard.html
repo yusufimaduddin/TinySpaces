@@ -71,13 +71,14 @@
 
                 async loadRecentSpaces() {
                     try {
-                        const response = await fetch('/api/spaces/recent');
-                        const data = await response.json();
+                        const data = await apiFetch('/api/spaces/recent');
                         if (data.success) {
                             this.recentSpaces = data.spaces;
                         }
                     } catch (error) {
-                        console.error('Error loading recent spaces:', error);
+                        if (error.name !== 'AuthError') {
+                            console.error('Error loading recent spaces:', error);
+                        }
                     }
                 },
 
@@ -92,8 +93,7 @@
                             params.append('search', this.searchQuery);
                         }
 
-                        const response = await fetch(`/api/spaces?${params}`);
-                        const data = await response.json();
+                        const data = await apiFetch(`/api/spaces?${params}`);
 
                         if (data.success) {
                             this.spaces = data.spaces;
@@ -101,8 +101,10 @@
                             this.showToast(data.message || 'Failed to load spaces', 'error');
                         }
                     } catch (error) {
-                        this.showToast('Error loading spaces', 'error');
-                        console.error(error);
+                        if (error.name !== 'AuthError') {
+                            this.showToast(error.message || 'Error loading spaces', 'error');
+                            console.error(error);
+                        }
                     } finally {
                         this.loading = false;
                     }
@@ -127,13 +129,11 @@
                     }
 
                     try {
-                        const response = await fetch('/api/spaces', {
+                        const data = await apiFetch('/api/spaces', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(this.formData)
                         });
-
-                        const data = await response.json();
 
                         if (data.success) {
                             this.showToast('Space created successfully!', 'success');
@@ -145,8 +145,10 @@
                             this.showToast(data.message || 'Failed to create space', 'error');
                         }
                     } catch (error) {
-                        this.showToast('Error creating space', 'error');
-                        console.error(error);
+                        if (error.name !== 'AuthError') {
+                            this.showToast(error.message || 'Error creating space', 'error');
+                            console.error(error);
+                        }
                     }
                 },
 

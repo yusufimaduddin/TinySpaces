@@ -1,13 +1,26 @@
 RewriteEngine On
 
-# Block access to sensitive directories
-RewriteRule ^(app|vendor|logs) - [F,L]
+# ---------------------------------------------------------------------------
+# Block sensitive directories (source code, dependencies, database, cache)
+# ---------------------------------------------------------------------------
+RewriteRule ^(app|vendor|logs|storage|tmp|src|scripts)(/|$) - [F,L]
+RewriteRule ^\.git(/|$) - [F,L]
 
-# Allow direct access to files in public folder
-RewriteCond %{REQUEST_URI} ^/(css|js|images)/ [OR]
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
+# Block sensitive root files (config, docs, scripts)
+RewriteRule ^(composer\.(json|lock)|package(-lock)?\.json|README\.md|LICENSE|CHANGELOG\.md|DEPLOYMENT\.md|setup-verify\.(ps1|sh)|tailwind\.config\.js|\.gitignore|\.htaccess)$ - [F,L]
+
+# Uploaded files must be served through the application (auth + correct headers),
+# never directly by the web server.
+RewriteRule ^public/uploads(/|$) - [F,L]
+
+# ---------------------------------------------------------------------------
+# Allow real static assets only
+# ---------------------------------------------------------------------------
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^(public|node_modules)/ - [L]
+
+# Let index.php handle the front controller itself
+RewriteRule ^index\.php$ - [L]
 
 # Rewrite all other requests to index.php
 RewriteRule .* index.php [L,QSA]

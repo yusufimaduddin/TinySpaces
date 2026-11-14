@@ -14,6 +14,7 @@
     <link href="/node_modules/boxicons/css/boxicons.min.css" rel="stylesheet">
     <script src="/node_modules/alpinejs/dist/cdn.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/relativeTime.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/utc.js"></script>
@@ -144,14 +145,14 @@
                         class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
                         <div class="border-b border-gray-200 dark:border-gray-700 px-4 py-3">
                             <h3 class="font-medium text-gray-900 dark:text-white">Files (<span
-                                    x-text="files.length"></span>)</h3>
+                                    x-text="visibleFiles.length"></span>)</h3>
                         </div>
 
-                        <div x-show="files.length === 0" class="p-6 text-center">
+                        <div x-show="visibleFiles.length === 0" class="p-6 text-center">
                             <p class="text-gray-500 dark:text-gray-400">No files uploaded yet</p>
                         </div>
 
-                        <div class="overflow-x-auto" x-show="files.length > 0">
+                        <div class="overflow-x-auto" x-show="visibleFiles.length > 0">
                             <table class="w-full text-sm">
                                 <thead class="bg-gray-50 dark:bg-gray-900">
                                     <tr>
@@ -163,15 +164,21 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <template x-for="file in files" :key="file.id">
+                                    <template x-for="file in visibleFiles" :key="file.id">
                                         <tr
                                             class="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                             <td class="p-3">
                                                 <div class="flex items-center gap-2">
-                                                    <i class="bx bx-file text-gray-500 dark:text-gray-400"></i>
-                                                    <span @click="viewFile(file.id)"
+                                                    <i :class="fileIcon(file)"
+                                                        class="bx text-gray-500 dark:text-gray-400"></i>
+                                                    <span @click="viewFile(file)"
                                                         class="text-gray-700 dark:text-gray-300 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer text-nowrap"
                                                         x-text="file.original_name"></span>
+                                                    <span x-show="file.group_name"
+                                                        class="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-700 dark:text-gray-400">
+                                                        <i class="bx bx-folder"></i>
+                                                        <span x-text="file.group_name"></span>
+                                                    </span>
                                                 </div>
                                             </td>
                                             <td class="p-3 text-gray-600 dark:text-gray-300 text-nowrap"
@@ -209,7 +216,7 @@
                     <div class="p-4 sm:p-6">
                         <div class="prose dark:prose-invert max-w-none">
                             <template x-if="readme.content">
-                                <div class="md-display pb-4" x-html="marked.parse(readme.content)"></div>
+                                <div class="md-display pb-4" x-html="renderMarkdown(readme.content)"></div>
                             </template>
                             <template x-if="!readme.content">
                                 <p class="text-gray-500 dark:text-gray-400">No README content yet</p>

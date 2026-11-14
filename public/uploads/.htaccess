@@ -1,0 +1,14 @@
+# Uploaded files must never be served or executed directly.
+# They are streamed by the application through:
+#   /api/spaces/{space_id}/files/{file_id}/view
+#   /api/spaces/{space_id}/files/{file_id}/download
+#
+# This is defense in depth: the root .htaccess also blocks /public/uploads.
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>
