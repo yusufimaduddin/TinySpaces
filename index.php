@@ -42,6 +42,25 @@ $f3->set('ONERROR', function ($f3) {
     echo Template::instance()->render('error.html');
 });
 
+// Some shared hosts point session.save_path to a missing or read-only
+// directory. When that happens PHP cannot persist the session, so a normal
+// login appears to fail while a "Remember me" cookie still works. Fall back
+// to a writable directory inside storage/ when the configured one is unusable.
+$sessionSavePath = trim((string) ini_get('session.save_path'));
+$sessionPathCandidates = array_filter(array_map('trim', explode(';', $sessionSavePath)));
+$sessionDir = end($sessionPathCandidates) ?: '';
+$sessionPathUsable = $sessionDir !== '' && is_dir($sessionDir) && is_writable($sessionDir);
+
+if (!$sessionPathUsable) {
+    $fallbackSessionDir = __DIR__ . '/storage/sessions';
+    if (!is_dir($fallbackSessionDir)) {
+        @mkdir($fallbackSessionDir, 0775, true);
+    }
+    if (is_dir($fallbackSessionDir) && is_writable($fallbackSessionDir)) {
+        ini_set('session.save_path', $fallbackSessionDir);
+    }
+}
+
 // Secure session cookie settings (must be set before session_start)
 $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
     || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')

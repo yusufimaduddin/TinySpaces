@@ -23,6 +23,7 @@ Thumbs.db
 tmp/
 storage/database.sqlite
 storage/database.sqlite-journal
+storage/sessions/
 *.log
 *.tmp
 

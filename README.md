@@ -77,6 +77,7 @@ If anyone has already built a project like this with newer, faster, and more eff
 - ✅ Upload files to spaces (max 100MB per file)
 - ✅ Open or download files: text/code files open in the editor, previewable media opens inline, and other types download with the original filename
 - ✅ Smart file list: grouped files, alphabetical sorting, file-type icons, and README kept separate
+- ✅ Assign a group name to each selected file before uploading
 - ✅ Delete files with owner verification
 - ✅ **Text & Code Editor**: Edit Markdown, plain text, and source-code files with a comfortable full-width editor **(new)**
 - ✅ **Markdown Preview**: Real-time preview and synchronized scrolling for Markdown files only **(new)**
@@ -557,6 +558,8 @@ npm run build
 ## 🌟 Latest Updates
 
 ### November 2026
+- **Group on Upload**: Each file in the upload selection list now has an optional group-name field, so grouped files can be uploaded directly (existing group names are suggested).
+- **Login Without "Remember Me"**: Login now works even when the checkbox is unchecked. A browser-session token is issued, and PHP sessions fall back to `storage/sessions` when the host's session directory is unusable.
 - **File List Cleanup**: Groups and files are sorted alphabetically (numeric-aware), grouped files are indented, file-type icons are shown, and `README.md` is excluded from the regular list/count.
 - **Smart Open/Download**: Clicking a filename opens text/code files in the editor, previews images/PDF/audio/video inline, and downloads other types with the original filename.
 - **Text & Code Editor**: The editor now handles source-code and plain-text files, not just Markdown.

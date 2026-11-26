@@ -98,21 +98,50 @@
                                     </div>
 
                                     <div class="space-y-2 max-h-60 overflow-y-auto p-2">
-                                        <template x-for="(file, index) in selectedFiles" :key="index">
+                                        <template x-for="(item, index) in selectedFiles" :key="item.uid">
                                             <div
-                                                class="flex items-center justify-between p-3 rounded-lg border bg-gray-50 dark:bg-gray-700 dark:border-gray-600">
-                                                <div class="flex-1 min-w-0">
-                                                    <p class="text-sm font-medium truncate dark:text-gray-300"
-                                                        x-text="file.name"></p>
-                                                    <p class="text-xs text-gray-500 dark:text-gray-400"
-                                                        x-text="formatFileSize(file.size)"></p>
+                                                class="rounded-lg border bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm font-medium truncate dark:text-gray-300"
+                                                            x-text="item.name"></p>
+                                                        <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                                            <span x-text="formatFileSize(item.size)"></span>
+                                                            <span class="text-gray-300 dark:text-gray-600">•</span>
+                                                            <div x-data="{ editing: false }">
+                                                                <template x-if="!editing">
+                                                                    <button type="button" @click="editing = true" :disabled="uploading"
+                                                                        class="inline-flex items-center gap-1 font-medium text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
+                                                                        <span x-text="item.group && item.group.trim() !== '' ? item.group : 'Unknown'"></span>
+                                                                        <i class='bx bx-pencil text-[10px] opacity-60'></i>
+                                                                    </button>
+                                                                </template>
+                                                                <template x-if="editing">
+                                                                    <input type="text" x-model="item.group" list="upload-group-suggestions"
+                                                                        maxlength="100" :disabled="uploading"
+                                                                        placeholder="Group name (optional)"
+                                                                        x-init="$nextTick(() => $el.focus())"
+                                                                        @blur="setTimeout(() => editing = false, 120)"
+                                                                        @keydown.enter.prevent="editing = false"
+                                                                        @keydown.escape.prevent="editing = false"
+                                                                        class="w-32 rounded border border-gray-300 bg-white px-2 py-0.5 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <button @click="removeSelectedFile(index)"
+                                                        :disabled="uploading"
+                                                        class="ml-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
+                                                        <i class="bx bx-x"></i>
+                                                    </button>
                                                 </div>
-                                                <button @click="removeSelectedFile(index)"
-                                                    class="ml-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 cursor-pointer">
-                                                    <i class="bx bx-x"></i>
-                                                </button>
                                             </div>
                                         </template>
+                                        <datalist id="upload-group-suggestions">
+                                            <template x-for="group in groups" :key="group.key">
+                                                <option :value="group.name"></option>
+                                            </template>
+                                        </datalist>
                                     </div>
                                 </div>
 
@@ -142,6 +171,9 @@
                                                             x-text="item.name"></p>
                                                         <p class="text-xs text-gray-500 dark:text-gray-400"
                                                             x-text="formatFileSize(item.size)"></p>
+                                                        <p x-show="item.group"
+                                                            class="truncate text-xs text-blue-600 dark:text-blue-400"
+                                                            x-text="'Group: ' + item.group"></p>
                                                     </div>
                                                     <div class="flex flex-shrink-0 items-center gap-2">
                                                         <span x-show="item.status === 'pending'"

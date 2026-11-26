@@ -36,6 +36,7 @@ document.addEventListener('alpine:init', () => {
         readme: '',
         loading: true,
         selectedFiles: [],
+        selectedFileSeq: 0,
         expandedGroups: {},
         mergeModalOpen: false,
         mergeGroupName: '',
@@ -259,7 +260,17 @@ document.addEventListener('alpine:init', () => {
                 this.overallProgress = 0;
             }
 
-            this.selectedFiles = [...this.selectedFiles, ...files];
+            // Keep the original File object together with an editable group
+            // name so each file can be assigned to a group before uploading.
+            const items = files.map((file) => ({
+                uid: ++this.selectedFileSeq,
+                file: file,
+                name: file.name,
+                size: file.size,
+                group: ''
+            }));
+
+            this.selectedFiles = [...this.selectedFiles, ...items];
         },
 
         removeSelectedFile(index) {
@@ -278,15 +289,16 @@ document.addEventListener('alpine:init', () => {
             if (this.uploading || this.selectedFiles.length === 0) return;
 
             const files = [...this.selectedFiles];
-            const totalBytes = files.reduce((sum, file) => sum + file.size, 0) || 1;
+            const totalBytes = files.reduce((sum, item) => sum + item.size, 0) || 1;
             const maxBytes = Number(window.UPLOAD_MAX_BYTES) || 0;
 
             this.uploading = true;
             this.overallProgress = 0;
             this.currentFileName = '';
-            this.uploadItems = files.map((file) => ({
-                name: file.name,
-                size: file.size,
+            this.uploadItems = files.map((item) => ({
+                name: item.name,
+                size: item.size,
+                group: item.group || '',
                 progress: 0,
                 status: 'pending',
                 error: ''
@@ -297,44 +309,46 @@ document.addEventListener('alpine:init', () => {
             let failureCount = 0;
 
             for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const item = this.uploadItems[i];
+                const item = files[i];
+                const file = item.file;
+                const groupName = (item.group || '').trim();
+                const uploadItem = this.uploadItems[i];
 
                 if (maxBytes > 0 && file.size > maxBytes) {
-                    item.status = 'error';
-                    item.error = `Ukuran file melebihi batas server (${this.formatFileSize(maxBytes)})`;
+                    uploadItem.status = 'error';
+                    uploadItem.error = `Ukuran file melebihi batas server (${this.formatFileSize(maxBytes)})`;
                     failureCount++;
                     completedBytes += file.size;
                     this.overallProgress = Math.round((completedBytes / totalBytes) * 100);
                     continue;
                 }
 
-                item.status = 'uploading';
+                uploadItem.status = 'uploading';
                 this.currentFileName = file.name;
 
                 try {
                     const result = await this.uploadSingleFile(file, (loaded) => {
-                        item.progress = file.size
+                        uploadItem.progress = file.size
                             ? Math.min(100, Math.round((loaded / file.size) * 100))
                             : 0;
                         this.overallProgress = Math.min(
                             99,
                             Math.round(((completedBytes + loaded) / totalBytes) * 100)
                         );
-                    });
+                    }, groupName);
 
                     if (result && result.success) {
-                        item.status = 'success';
-                        item.progress = 100;
+                        uploadItem.status = 'success';
+                        uploadItem.progress = 100;
                         successCount++;
                     } else {
-                        item.status = 'error';
-                        item.error = (result && result.message) || 'Upload gagal';
+                        uploadItem.status = 'error';
+                        uploadItem.error = (result && result.message) || 'Upload gagal';
                         failureCount++;
                     }
                 } catch (error) {
-                    item.status = 'error';
-                    item.error = error && error.message ? error.message : 'Upload gagal';
+                    uploadItem.status = 'error';
+                    uploadItem.error = error && error.message ? error.message : 'Upload gagal';
                     failureCount++;
 
                     // Stop the queue if the session is gone; the page will redirect
@@ -367,7 +381,7 @@ document.addEventListener('alpine:init', () => {
             await this.loadSpaceData();
         },
 
-        uploadSingleFile(file, onProgress) {
+        uploadSingleFile(file, onProgress, groupName = '') {
             return new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
                 xhr.open('POST', `/api/spaces/${this.spaceId}/upload`, true);
@@ -430,6 +444,9 @@ document.addEventListener('alpine:init', () => {
 
                 const formData = new FormData();
                 formData.append('file', file);
+                if (groupName) {
+                    formData.append('group_name', groupName);
+                }
                 xhr.send(formData);
             });
         },

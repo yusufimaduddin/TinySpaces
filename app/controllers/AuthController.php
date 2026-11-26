@@ -56,19 +56,21 @@ class AuthController
             session_regenerate_id(true);
         }
 
+        // Revoke the previous device token (if this browser had one) before
+        // issuing a fresh one for this login.
+        if (isset($_COOKIE['remember_token']) && is_string($_COOKIE['remember_token'])) {
+            User::deleteRememberToken($_COOKIE['remember_token']);
+        }
+
         // Set session
         self::setSession($user);
 
-        // Handle remember me
-        if ($remember) {
-            $token = User::createRememberToken($user->id);
-            self::setRememberCookie($token);
-        } elseif (isset($_COOKIE['remember_token'])) {
-            // User explicitly chose not to be remembered: revoke this device token
-            User::deleteRememberToken($_COOKIE['remember_token']);
-            $this->userModel->clearRememberToken();
-            self::clearRememberCookie();
-        }
+        // Always issue a device token. When "Remember me" is unchecked the
+        // cookie is a browser-session cookie (no expiry), and when it is
+        // checked the cookie lasts 30 days. This also keeps users signed in on
+        // shared hosting where the PHP session directory may not be writable.
+        $token = User::createRememberToken($user->id);
+        self::setRememberCookie($token, $remember ? 30 * 24 * 60 * 60 : 0);
 
         $this->redirectBasedOnRole();
     }
@@ -76,7 +78,7 @@ class AuthController
     public function logout()
     {
         // Revoke only this device's remember token
-        if (isset($_COOKIE['remember_token'])) {
+        if (isset($_COOKIE['remember_token']) && is_string($_COOKIE['remember_token'])) {
             User::deleteRememberToken($_COOKIE['remember_token']);
             self::clearRememberCookie();
         }
@@ -114,7 +116,7 @@ class AuthController
             return true;
         }
 
-        if (empty($_COOKIE['remember_token'])) {
+        if (empty($_COOKIE['remember_token']) || !is_string($_COOKIE['remember_token'])) {
             return false;
         }
 
@@ -144,10 +146,11 @@ class AuthController
         if ($isLegacy) {
             $userModel->clearRememberToken();
             $newToken = User::createRememberToken($user->id);
-            self::setRememberCookie($newToken);
+            self::setRememberCookie($newToken, 30 * 24 * 60 * 60);
         } else {
+            // Do not rewrite the cookie here: an unchecked "Remember me"
+            // login uses a browser-session cookie and must stay that way.
             User::touchRememberToken($rawToken);
-            self::setRememberCookie($rawToken);
         }
 
         return true;
@@ -171,9 +174,11 @@ class AuthController
         ];
     }
 
-    private static function setRememberCookie($token)
+    private static function setRememberCookie($token, $lifetime = 0)
     {
-        setcookie('remember_token', $token, self::rememberCookieOptions(time() + (30 * 24 * 60 * 60)));
+        // lifetime 0 -> browser-session cookie (expires when the browser closes)
+        $expires = $lifetime > 0 ? time() + (int) $lifetime : 0;
+        setcookie('remember_token', $token, self::rememberCookieOptions($expires));
     }
 
     public static function clearRememberCookie()

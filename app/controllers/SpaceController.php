@@ -189,7 +189,11 @@ class SpaceController
             return;
         }
 
-        $result = $this->fileModel->uploadFile($spaceId, $_FILES['file'], $userId);
+        $groupName = isset($_POST['group_name']) && is_string($_POST['group_name'])
+            ? trim($_POST['group_name'])
+            : '';
+
+        $result = $this->fileModel->uploadFile($spaceId, $_FILES['file'], $userId, $groupName);
         $this->jsonResponse($result);
     }
 

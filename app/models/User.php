@@ -35,6 +35,10 @@ class User extends \DB\SQL\Mapper
 
     public function findByToken($token)
     {
+        if (empty($token) || !is_string($token)) {
+            return null;
+        }
+
         $this->load([
             'remember_token = ? AND token_expires_at > ?',
             $token,
@@ -90,7 +94,7 @@ class User extends \DB\SQL\Mapper
      */
     public function findByRememberToken($rawToken)
     {
-        if (empty($rawToken)) {
+        if (empty($rawToken) || !is_string($rawToken)) {
             return null;
         }
 
@@ -116,7 +120,7 @@ class User extends \DB\SQL\Mapper
      */
     public static function touchRememberToken($rawToken, $days = 30)
     {
-        if (empty($rawToken)) {
+        if (empty($rawToken) || !is_string($rawToken)) {
             return false;
         }
 
@@ -137,7 +141,7 @@ class User extends \DB\SQL\Mapper
      */
     public static function deleteRememberToken($rawToken)
     {
-        if (empty($rawToken)) {
+        if (empty($rawToken) || !is_string($rawToken)) {
             return;
         }
 

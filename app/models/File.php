@@ -326,7 +326,7 @@ class File extends DB\SQL\Mapper
     /**
      * Upload a file to a space
      */
-    public function uploadFile($spaceId, $uploadedFile, $userId)
+    public function uploadFile($spaceId, $uploadedFile, $userId, $groupName = '')
     {
         // Validate upload
         if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
@@ -386,6 +386,15 @@ class File extends DB\SQL\Mapper
             $mimeType = 'application/octet-stream';
         }
 
+        // Normalize the optional group name. Reuse the existing spelling when
+        // the name only differs by case so groups stay consistent.
+        $group = $this->normalizeGroupName($groupName);
+        if ($group !== '' && $originalName !== 'README.md') {
+            $group = $this->resolveGroupName($spaceId, $group);
+        } else {
+            $group = null;
+        }
+
         // Save to database
         $this->id = Database::generateId();
         $this->space_id = $spaceId;
@@ -396,6 +405,7 @@ class File extends DB\SQL\Mapper
         $this->uploaded_by = $userId;
         $this->uploaded_at = date('Y-m-d H:i:s');
         $this->updated_at = date('Y-m-d H:i:s');
+        $this->group_name = $group;
 
         try {
             $this->save();
